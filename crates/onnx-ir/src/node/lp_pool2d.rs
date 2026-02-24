@@ -73,12 +73,24 @@ impl NodeProcessor for LpPool2dProcessor {
                             kernel_shape
                         )));
                     }
+                    if kernel_shape[0] <= 0 || kernel_shape[1] <= 0 {
+                        return Err(ProcessError::Custom(format!(
+                            "LpPool2d: kernel_shape values must be > 0, got {:?}",
+                            kernel_shape
+                        )));
+                    }
                 }
                 "strides" => {
                     let strides = value.clone().into_i64s();
                     if strides.len() != 2 {
                         return Err(ProcessError::Custom(format!(
                             "LpPool2d: strides must have length 2, got {:?}",
+                            strides
+                        )));
+                    }
+                    if strides[0] <= 0 || strides[1] <= 0 {
+                        return Err(ProcessError::Custom(format!(
+                            "LpPool2d: strides values must be > 0, got {:?}",
                             strides
                         )));
                     }
@@ -96,7 +108,7 @@ impl NodeProcessor for LpPool2dProcessor {
                     let p = value.clone().into_i64();
                     if p <= 0 {
                         return Err(ProcessError::Custom(format!(
-                            "LpPool: p must be > 0, got {}",
+                            "LpPool2d: p must be > 0, got {}",
                             p
                         )));
                     }
@@ -115,6 +127,12 @@ impl NodeProcessor for LpPool2dProcessor {
                     if dilations.len() != 2 {
                         return Err(ProcessError::Custom(format!(
                             "LpPool2d: dilations must have length 2, got {:?}",
+                            dilations
+                        )));
+                    }
+                    if dilations[0] <= 0 || dilations[1] <= 0 {
+                        return Err(ProcessError::Custom(format!(
+                            "LpPool2d: dilations values must be > 0, got {:?}",
                             dilations
                         )));
                     }
@@ -176,31 +194,6 @@ impl NodeProcessor for LpPool2dProcessor {
             }
         }
 
-        if kernel_shape.len() != 2 {
-            return Err(ProcessError::Custom(format!(
-                "LpPool2d: kernel_shape must have length 2, got {:?}",
-                kernel_shape
-            )));
-        }
-        if strides.len() != 2 {
-            return Err(ProcessError::Custom(format!(
-                "LpPool2d: strides must have length 2, got {:?}",
-                strides
-            )));
-        }
-        if pads.len() != 4 {
-            return Err(ProcessError::Custom(format!(
-                "LpPool2d: pads must have length 4, got {:?}",
-                pads
-            )));
-        }
-        if dilations.len() != 2 {
-            return Err(ProcessError::Custom(format!(
-                "LpPool2d: dilations must have length 2, got {:?}",
-                dilations
-            )));
-        }
-
         let padding = padding_config_2d(&pads);
 
         let config = LpPool2dConfig::new(
@@ -208,7 +201,7 @@ impl NodeProcessor for LpPool2dProcessor {
             [strides[0] as usize, strides[1] as usize],
             padding,
             [dilations[0] as usize, dilations[1] as usize],
-            ceil_mode == 1,
+            ceil_mode != 0,
             auto_pad,
             p,
         );
@@ -360,5 +353,45 @@ mod tests {
         assert!(result.is_err());
         let err_msg = format!("{}", result.unwrap_err());
         assert!(err_msg.contains("dilations requires opset 11+"));
+    }
+
+    #[test]
+    fn test_lppool2d_non_positive_values_validation() {
+        let processor = LpPool2dProcessor;
+        let prefs = OutputPreferences::new();
+
+        let mut kernel_zero =
+            create_test_node(vec![0, 2], vec![1, 1], vec![0, 0, 0, 0], None, 0, None);
+        let err = processor
+            .infer_types(&mut kernel_zero, 16, &prefs)
+            .expect_err("Expected non-positive kernel_shape to fail");
+        assert!(format!("{}", err).contains("kernel_shape values must be > 0"));
+
+        let mut stride_zero =
+            create_test_node(vec![2, 2], vec![0, 1], vec![0, 0, 0, 0], None, 0, None);
+        let err = processor
+            .infer_types(&mut stride_zero, 16, &prefs)
+            .expect_err("Expected non-positive stride to fail");
+        assert!(format!("{}", err).contains("strides values must be > 0"));
+
+        let mut dilation_zero = create_test_node(
+            vec![2, 2],
+            vec![1, 1],
+            vec![0, 0, 0, 0],
+            Some(vec![0, 1]),
+            0,
+            None,
+        );
+        let err = processor
+            .infer_types(&mut dilation_zero, 16, &prefs)
+            .expect_err("Expected non-positive dilation to fail");
+        assert!(format!("{}", err).contains("dilations values must be > 0"));
+
+        let mut p_zero =
+            create_test_node(vec![2, 2], vec![1, 1], vec![0, 0, 0, 0], None, 0, Some(0));
+        let err = processor
+            .infer_types(&mut p_zero, 16, &prefs)
+            .expect_err("Expected non-positive p to fail");
+        assert!(format!("{}", err).contains("LpPool2d: p must be > 0"));
     }
 }

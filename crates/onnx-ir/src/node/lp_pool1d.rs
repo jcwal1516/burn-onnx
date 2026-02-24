@@ -75,12 +75,24 @@ impl NodeProcessor for LpPool1dProcessor {
                             kernel_shape
                         )));
                     }
+                    if kernel_shape[0] <= 0 {
+                        return Err(ProcessError::Custom(format!(
+                            "LpPool1d: kernel_shape values must be > 0, got {:?}",
+                            kernel_shape
+                        )));
+                    }
                 }
                 "strides" => {
                     let strides = value.clone().into_i64s();
                     if strides.len() != 1 {
                         return Err(ProcessError::Custom(format!(
                             "LpPool1d: strides must have length 1, got {:?}",
+                            strides
+                        )));
+                    }
+                    if strides[0] <= 0 {
+                        return Err(ProcessError::Custom(format!(
+                            "LpPool1d: strides values must be > 0, got {:?}",
                             strides
                         )));
                     }
@@ -98,7 +110,7 @@ impl NodeProcessor for LpPool1dProcessor {
                     let p = value.clone().into_i64();
                     if p <= 0 {
                         return Err(ProcessError::Custom(format!(
-                            "LpPool: p must be > 0, got {}",
+                            "LpPool1d: p must be > 0, got {}",
                             p
                         )));
                     }
@@ -117,6 +129,12 @@ impl NodeProcessor for LpPool1dProcessor {
                     if dilations.len() != 1 {
                         return Err(ProcessError::Custom(format!(
                             "LpPool1d: dilations must have length 1, got {:?}",
+                            dilations
+                        )));
+                    }
+                    if dilations[0] <= 0 {
+                        return Err(ProcessError::Custom(format!(
+                            "LpPool1d: dilations values must be > 0, got {:?}",
                             dilations
                         )));
                     }
@@ -178,31 +196,6 @@ impl NodeProcessor for LpPool1dProcessor {
             }
         }
 
-        if kernel_shape.len() != 1 {
-            return Err(ProcessError::Custom(format!(
-                "LpPool1d: kernel_shape must have length 1, got {:?}",
-                kernel_shape
-            )));
-        }
-        if stride.len() != 1 {
-            return Err(ProcessError::Custom(format!(
-                "LpPool1d: strides must have length 1, got {:?}",
-                stride
-            )));
-        }
-        if pads.len() != 2 {
-            return Err(ProcessError::Custom(format!(
-                "LpPool1d: pads must have length 2, got {:?}",
-                pads
-            )));
-        }
-        if dilations.len() != 1 {
-            return Err(ProcessError::Custom(format!(
-                "LpPool1d: dilations must have length 1, got {:?}",
-                dilations
-            )));
-        }
-
         let padding = padding_config_1d(&pads);
 
         let config = LpPool1dConfig::new(
@@ -210,7 +203,7 @@ impl NodeProcessor for LpPool1dProcessor {
             stride[0] as usize,
             padding,
             dilations[0] as usize,
-            ceil_mode == 1,
+            ceil_mode != 0,
             auto_pad,
             p,
         );
@@ -334,6 +327,36 @@ mod tests {
         assert!(result.is_err());
         let err_msg = format!("{}", result.unwrap_err());
         assert!(err_msg.contains("dilations != 1 is not supported"));
+    }
+
+    #[test]
+    fn test_lppool1d_non_positive_values_validation() {
+        let mut kernel_zero = create_test_node(vec![0], vec![1], vec![0, 0], None, 0, None);
+        let processor = LpPool1dProcessor;
+        let prefs = OutputPreferences::new();
+        let err = processor
+            .infer_types(&mut kernel_zero, 16, &prefs)
+            .expect_err("Expected non-positive kernel_shape to fail");
+        assert!(format!("{}", err).contains("kernel_shape values must be > 0"));
+
+        let mut stride_zero = create_test_node(vec![3], vec![0], vec![0, 0], None, 0, None);
+        let err = processor
+            .infer_types(&mut stride_zero, 16, &prefs)
+            .expect_err("Expected non-positive stride to fail");
+        assert!(format!("{}", err).contains("strides values must be > 0"));
+
+        let mut dilation_zero =
+            create_test_node(vec![3], vec![1], vec![0, 0], Some(vec![0]), 0, None);
+        let err = processor
+            .infer_types(&mut dilation_zero, 16, &prefs)
+            .expect_err("Expected non-positive dilation to fail");
+        assert!(format!("{}", err).contains("dilations values must be > 0"));
+
+        let mut p_zero = create_test_node(vec![3], vec![1], vec![0, 0], None, 0, Some(0));
+        let err = processor
+            .infer_types(&mut p_zero, 16, &prefs)
+            .expect_err("Expected non-positive p to fail");
+        assert!(format!("{}", err).contains("p must be > 0"));
     }
 
     #[test]
