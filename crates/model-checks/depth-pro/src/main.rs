@@ -8,39 +8,33 @@ use std::time::Instant;
 
 model_checks_common::backend_type!();
 
-include!(concat!(env!("OUT_DIR"), "/model_info.rs"));
-
-use smollm_model::Model;
+// Import the generated model code as a module
+pub mod depth_pro {
+    include!(concat!(env!("OUT_DIR"), "/model/depth-pro.rs"));
+}
 
 #[derive(Debug, Module)]
 struct TestData<B: Backend> {
-    input_ids: Param<Tensor<B, 2, Int>>,
-    logits: Param<Tensor<B, 3>>,
+    pixel_values: Param<Tensor<B, 4>>,
+    predicted_depth: Param<Tensor<B, 3>>,
 }
 
 impl<B: Backend> TestData<B> {
     fn new(device: &B::Device) -> Self {
-        use burn::module::ParamId;
+        // DepthPro: input 1536x1536, output depth map 1536x1536
         Self {
-            input_ids: Param::initialized(ParamId::new(), Tensor::zeros([1, SEQ_LENGTH], device)),
-            logits: Initializer::Zeros.init([1, SEQ_LENGTH, VOCAB_SIZE], device),
+            pixel_values: Initializer::Zeros.init([1, 3, 1536, 1536], device),
+            predicted_depth: Initializer::Zeros.init([1, 1536, 1536], device),
         }
     }
 }
 
 fn main() {
-    let model_name = MODEL_NAME;
-    let display_name = match model_name {
-        "smollm-135m" => "SmolLM 135M",
-        "smollm2-135m" => "SmolLM2 135M",
-        _ => model_name,
-    };
-
     println!("========================================");
-    println!("{} Burn Model Test", display_name);
+    println!("Apple Depth Pro Burn Model Test");
     println!("========================================\n");
 
-    let artifacts_dir = model_checks_common::artifacts_dir("smollm");
+    let artifacts_dir = model_checks_common::artifacts_dir("depth-pro");
     println!("Artifacts directory: {}", artifacts_dir.display());
 
     if !artifacts_dir.exists() {
@@ -49,31 +43,20 @@ fn main() {
             artifacts_dir.display()
         );
         eprintln!("Please run get_model.py first to download the model and test data.");
-        eprintln!("Example: uv run get_model.py --model {}", model_name);
         std::process::exit(1);
     }
 
-    let model_file = artifacts_dir.join(format!("{}_opset16.onnx", model_name));
-    let test_data_file = artifacts_dir.join(TEST_DATA_FILE);
-
-    if !model_file.exists() || !test_data_file.exists() {
-        eprintln!("Error: Model files not found for {}!", display_name);
-        eprintln!("Please run: uv run get_model.py --model {}", model_name);
-        eprintln!();
-        eprintln!("Available models:");
-        eprintln!("  - smollm-135m");
-        eprintln!("  - smollm2-135m");
-        std::process::exit(1);
-    }
-
-    println!("Initializing {} model...", display_name);
+    // Initialize the model
+    println!("Initializing Depth Pro model...");
     let start = Instant::now();
     let device = model_checks_common::best_device!();
-    let model: Model<MyBackend> = Model::from_file(WEIGHTS_PATH, &device);
+    let weights_path = concat!(env!("OUT_DIR"), "/model/depth-pro.bpk");
+    let model: depth_pro::Model<MyBackend> = depth_pro::Model::from_file(weights_path, &device);
     let init_time = start.elapsed();
     println!("  Model initialized in {:.2?}", init_time);
 
-    let model_txt_path = artifacts_dir.join(format!("{}_model.txt", model_name));
+    // Save model structure to file
+    let model_txt_path = artifacts_dir.join("model.txt");
     println!(
         "\nSaving model structure to {}...",
         model_txt_path.display()
@@ -82,42 +65,66 @@ fn main() {
     std::fs::write(&model_txt_path, &model_str).expect("Failed to write model structure to file");
     println!("  Model structure saved");
 
-    println!("\nLoading test data from {}...", test_data_file.display());
+    // Load test data from PyTorch file
+    let test_data_path = artifacts_dir.join("test_data.pt");
+    println!("\nLoading test data from {}...", test_data_path.display());
     let start = Instant::now();
     let mut test_data = TestData::<MyBackend>::new(&device);
-    let mut store = PytorchStore::from_file(&test_data_file);
+    let mut store = PytorchStore::from_file(&test_data_path);
     test_data
         .load_from(&mut store)
         .expect("Failed to load test data");
     let load_time = start.elapsed();
     println!("  Data loaded in {:.2?}", load_time);
 
-    let input_ids = test_data.input_ids.val();
-    let reference_logits = test_data.logits.val();
+    // Get the input tensor
+    let pixel_values = test_data.pixel_values.val();
+    let pixel_values_shape: [usize; 4] = pixel_values.shape().dims();
+    println!("  Loaded pixel_values with shape: {:?}", pixel_values_shape);
 
-    let input_shape: [usize; 2] = input_ids.shape().dims();
-    let ref_shape: [usize; 3] = reference_logits.shape().dims();
-    println!("  input_ids shape: {:?}", input_shape);
-    println!("  reference logits shape: {:?}", ref_shape);
+    // Get the reference output
+    let reference_depth = test_data.predicted_depth.val();
+    let ref_depth_shape: [usize; 3] = reference_depth.shape().dims();
+    println!(
+        "  Loaded reference predicted_depth with shape: {:?}",
+        ref_depth_shape
+    );
 
     // Warmup run (compiles GPU shaders, allocates buffers)
     println!("\nWarmup inference...");
-    let warmup_input = input_ids.clone();
     let start = Instant::now();
-    let _ = model.forward(warmup_input);
+    let _ = model.forward(pixel_values.clone());
     println!("  Warmup completed in {:.2?}", start.elapsed());
 
-    println!("Running model inference...");
+    // Run inference (model returns predicted_depth + focallength_px)
+    println!("Running model inference with test input...");
     let start = Instant::now();
-    let output_logits = model.forward(input_ids);
+
+    let (predicted_depth_4d, _focallength_px) = model.forward(pixel_values);
+
     let inference_time = start.elapsed();
     println!("  Inference completed in {:.2?}", inference_time);
-    let out_shape: [usize; 3] = output_logits.shape().dims();
-    println!("  Output logits shape: {:?}", out_shape);
+
+    // The model returns rank 4 due to If node branch alignment; squeeze dim 0 to rank 3
+    let predicted_depth: Tensor<MyBackend, 3> = predicted_depth_4d.squeeze_dim(0);
+
+    // Display output shape
+    let depth_shape: [usize; 3] = predicted_depth.shape().dims();
+    println!("\n  Model output shapes:");
+    println!("    predicted_depth: {:?}", depth_shape);
+
+    if depth_shape != ref_depth_shape {
+        eprintln!(
+            "FAILED: Expected predicted_depth shape {:?}, got {:?}",
+            ref_depth_shape, depth_shape
+        );
+        std::process::exit(1);
+    }
+    println!("  Shape matches expected: {:?}", ref_depth_shape);
 
     println!("\nComparing model outputs with reference data...");
 
-    let diff = output_logits - reference_logits;
+    let diff = predicted_depth - reference_depth;
     let abs_diff = diff.abs();
     let max_diff: f32 = abs_diff.clone().max().into_scalar();
     let mean_diff: f32 = abs_diff.mean().into_scalar();
@@ -125,8 +132,8 @@ fn main() {
     println!("  Maximum absolute difference: {:.6}", max_diff);
     println!("  Mean absolute difference: {:.6}", mean_diff);
 
-    let max_diff_threshold = 1e-2;
-    let mean_diff_threshold = 1e-3;
+    let max_diff_threshold = 1e-3;
+    let mean_diff_threshold = 1e-4;
     let validation = if max_diff <= max_diff_threshold && mean_diff <= mean_diff_threshold {
         println!(
             "  Within tolerance (max<{}, mean<{})",
@@ -143,7 +150,6 @@ fn main() {
 
     println!("\n========================================");
     println!("Summary:");
-    println!("  - Model: {}", display_name);
     println!("  - Model initialization: {:.2?}", init_time);
     println!("  - Data loading: {:.2?}", load_time);
     println!("  - Inference time: {:.2?}", inference_time);

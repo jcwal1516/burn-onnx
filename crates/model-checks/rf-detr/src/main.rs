@@ -69,7 +69,7 @@ fn main() {
     // Initialize the model with weights
     println!("Initializing RF-DETR Small model...");
     let start = Instant::now();
-    let device = Default::default();
+    let device = model_checks_common::best_device!();
 
     // The model weights are generated at build time and stored in the OUT_DIR
     // We need to load them from the embedded burnpack file

@@ -51,6 +51,9 @@ struct ModelInfo {
     blocked: bool,
 }
 
+// Note: depth-pro is excluded from xtask because it is too large for CI
+// (1500+ nodes, ~12K lines of generated code, minutes-long compile times).
+// Use `cargo build/run` directly in crates/model-checks/depth-pro/ instead.
 const MODELS: &[ModelInfo] = &[
     ModelInfo {
         id: "silero-vad",

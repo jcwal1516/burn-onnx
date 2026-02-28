@@ -85,8 +85,8 @@ fn main() {
     // Initialize the model (without weights for now)
     println!("Initializing {} model...", display_name);
     let start = Instant::now();
-    let device = Default::default();
-    let model: Model<MyBackend> = Model::default();
+    let device = model_checks_common::best_device!();
+    let model: Model<MyBackend> = Model::from_file(WEIGHTS_PATH, &device);
     let init_time = start.elapsed();
     println!("  Model initialized in {:.2?}", init_time);
 

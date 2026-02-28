@@ -76,19 +76,22 @@ impl NodeProcessor for IfProcessor {
         opset: usize,
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
-        // Validate condition input is bool
+        // Validate condition input is bool (or a Shape used as bool from comparison).
         // Per ONNX spec, the condition must be a tensor containing a single element,
-        // but we allow any bool tensor/scalar as some models may not be strictly conformant
+        // but we allow any bool tensor/scalar as some models may not be strictly conformant.
+        // Shape values from comparisons (e.g., Equal on shapes) use 0/1 as false/true.
         let condition = &node.inputs[0].ty;
-        let is_bool = match condition {
+        let is_bool_like = match condition {
             ArgType::ScalarTensor(dtype) | ArgType::ScalarNative(dtype) => dtype.is_bool(),
             ArgType::Tensor(tensor) => tensor.dtype.is_bool(),
-            ArgType::Shape(_) => false,
+            // Shape comparison results (e.g., Equal on shapes) use 0/1 as false/true.
+            // Require rank >= 1 so that codegen can safely read the first element.
+            ArgType::Shape(rank) => *rank >= 1,
         };
 
-        if !is_bool {
+        if !is_bool_like {
             return Err(ProcessError::TypeMismatch {
-                expected: "Bool tensor or scalar".to_string(),
+                expected: "Bool tensor, scalar, or Shape".to_string(),
                 actual: format!("{:?}", condition),
             });
         }
@@ -109,20 +112,31 @@ impl NodeProcessor for IfProcessor {
             )));
         }
 
-        // Infer output types from then_branch
-        // Both branches produce the same number of outputs, so we use then_branch as the reference.
+        // Infer output types from branches.
+        // Use the branch output with the higher rank so that both branches can be
+        // reconciled at codegen time (the lower-rank branch gets unsqueezed).
         // At runtime, only one branch executes, so the types should be compatible.
 
         // If outputs don't exist yet, create them from branch outputs
         if node.outputs.is_empty() {
-            for then_output in &then_outputs {
-                node.outputs.push(then_output.clone());
+            for (then_output, else_output) in then_outputs.iter().zip(else_outputs.iter()) {
+                if else_output.ty.rank() > then_output.ty.rank() {
+                    node.outputs.push(else_output.clone());
+                } else {
+                    node.outputs.push(then_output.clone());
+                }
             }
         } else {
             // Update types for existing outputs (preserves names set by add_node)
-            for (i, then_output) in then_outputs.iter().enumerate() {
+            for (i, (then_output, else_output)) in
+                then_outputs.iter().zip(else_outputs.iter()).enumerate()
+            {
                 if i < node.outputs.len() {
-                    node.outputs[i].ty = then_output.ty.clone();
+                    if else_output.ty.rank() > then_output.ty.rank() {
+                        node.outputs[i].ty = else_output.ty.clone();
+                    } else {
+                        node.outputs[i].ty = then_output.ty.clone();
+                    }
                 }
             }
         }

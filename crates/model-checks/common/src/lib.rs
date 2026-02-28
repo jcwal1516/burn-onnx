@@ -1,5 +1,9 @@
 use std::path::PathBuf;
 
+// ---------------------------------------------------------------------------
+// Artifact paths
+// ---------------------------------------------------------------------------
+
 /// Returns the artifacts directory for a model-check crate.
 ///
 /// Used in `src/main.rs` (no cargo warnings).
@@ -26,6 +30,10 @@ pub fn artifacts_dir_build(model_name: &str) -> PathBuf {
     dir
 }
 
+// ---------------------------------------------------------------------------
+// Backend and device selection
+// ---------------------------------------------------------------------------
+
 /// Defines `MyBackend` type alias based on the active feature flag.
 ///
 /// Expands to four `#[cfg(feature = "...")]` type aliases for wgpu,
@@ -45,4 +53,55 @@ macro_rules! backend_type {
         #[cfg(feature = "metal")]
         pub type MyBackend = burn::backend::Metal;
     };
+}
+
+/// Returns the best available device for the active backend.
+///
+/// Override with `BURN_DEVICE=cpu|mps|cuda|cuda:N`.
+///
+/// Defaults:
+/// - **wgpu / metal / ndarray**: `Default::default()` (already picks the best device)
+/// - **tch**: MPS on macOS, Cuda(0) elsewhere
+#[macro_export]
+macro_rules! best_device {
+    () => {{
+        #[cfg(feature = "tch")]
+        {
+            use burn::backend::libtorch::LibTorchDevice;
+            match std::env::var("BURN_DEVICE").ok().as_deref() {
+                Some("cpu") => LibTorchDevice::Cpu,
+                Some("mps") => LibTorchDevice::Mps,
+                Some(s) if s.starts_with("cuda") => {
+                    let idx = match s.strip_prefix("cuda:") {
+                        Some(i) => match i.parse() {
+                            Ok(n) => n,
+                            Err(_) => {
+                                eprintln!(
+                                    "Warning: invalid CUDA index '{i}', defaulting to cuda:0"
+                                );
+                                0
+                            }
+                        },
+                        None => 0,
+                    };
+                    LibTorchDevice::Cuda(idx)
+                }
+                _ => {
+                    #[cfg(target_os = "macos")]
+                    {
+                        LibTorchDevice::Mps
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    {
+                        LibTorchDevice::Cuda(0)
+                    }
+                }
+            }
+        }
+
+        #[cfg(not(feature = "tch"))]
+        {
+            <MyBackend as burn::prelude::Backend>::Device::default()
+        }
+    }};
 }

@@ -8,6 +8,7 @@ mod node_traits;
 mod imports;
 
 mod argument_helpers;
+mod partition;
 mod scope;
 
 pub(crate) use argument_helpers::*;

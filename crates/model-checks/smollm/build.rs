@@ -68,6 +68,11 @@ fn main() {
         model_name
     );
 
+    let weights_include = format!(
+        "concat!(env!(\"OUT_DIR\"), \"/model/{}_opset16.bpk\")",
+        model_name
+    );
+
     fs::write(
         model_info_path,
         format!(
@@ -75,11 +80,12 @@ fn main() {
 pub const TEST_DATA_FILE: &str = "{}_test_data.pt";
 pub const SEQ_LENGTH: usize = {};
 pub const VOCAB_SIZE: usize = {};
+pub const WEIGHTS_PATH: &str = {};
 
 pub mod smollm_model {{
     {}
 }}"#,
-            model_name, model_name, seq_length, vocab_size, model_include
+            model_name, model_name, seq_length, vocab_size, weights_include, model_include
         ),
     )
     .expect("Failed to write model info");

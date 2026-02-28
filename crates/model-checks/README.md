@@ -9,9 +9,9 @@ represents a different model that we test to ensure burn-onnx can correctly:
 
 ## Purpose
 
-The model-checks serve as integration tests to verify that burn-onnx works correctly with
-real-world models. These tests help catch regressions and ensure compatibility with various ONNX
-operators and model architectures.
+The model-checks serve as integration tests to verify that burn-onnx works correctly with real-world
+models. These tests help catch regressions and ensure compatibility with various ONNX operators and
+model architectures.
 
 ## Structure
 
@@ -71,17 +71,48 @@ The build process will:
 - Generate Rust code from the ONNX model using burn-onnx
 - Compile the generated code
 
+## Backend and Device Selection
+
+All model checks support multiple backends via Cargo features:
+
+```bash
+cargo run                              # default (ndarray, CPU)
+cargo run --features wgpu              # WebGPU
+cargo run --features metal             # Metal (macOS)
+cargo run --features tch               # LibTorch
+cargo run --no-default-features --features tch   # LibTorch only
+```
+
+For the `tch` backend, the best GPU device is selected automatically:
+
+- **macOS**: MPS (Metal Performance Shaders)
+- **Linux / Windows**: CUDA (GPU 0)
+
+Override with the `BURN_DEVICE` environment variable:
+
+```bash
+BURN_DEVICE=cpu cargo run --features tch     # force CPU
+BURN_DEVICE=mps cargo run --features tch     # force MPS
+BURN_DEVICE=cuda cargo run --features tch    # CUDA GPU 0
+BURN_DEVICE=cuda:1 cargo run --features tch  # CUDA GPU 1
+```
+
+Other backends (wgpu, metal) already select the best GPU by default; ndarray is CPU-only.
+
 ## Models
 
-| Directory | Model | Source | Related Issue |
-|-----------|-------|--------|---------------|
-| `albert/` | ALBERT | HuggingFace | |
-| `all-minilm-l6-v2/` | all-MiniLM-L6-v2 | HuggingFace | |
-| `clip-vit-b-32-text/` | CLIP ViT-B-32 (text) | HuggingFace | |
-| `clip-vit-b-32-vision/` | CLIP ViT-B-32 (vision) | HuggingFace | |
-| `mediapipe-face-detector/` | MediaPipe Face Detector (BlazeFace) | Google MediaPipe | [#1370](https://github.com/tracel-ai/burn/issues/1370) |
-| `modernbert-base/` | ModernBERT-base | HuggingFace | |
-| `rf-detr/` | RF-DETR Small | Roboflow | [#4052](https://github.com/tracel-ai/burn/issues/4052) |
-| `silero-vad/` | Silero VAD | Silero | |
-| `smollm/` | SmolLM / SmolLM2 (135M) | HuggingFace | |
-| `yolo/` | YOLO (v5/v8/v10/v11/v12) | Ultralytics | |
+| Directory                  | Model                               | Source              |
+| -------------------------- | ----------------------------------- | ------------------- |
+| `albert/`                  | ALBERT                              | HuggingFace         |
+| `all-minilm-l6-v2/`        | all-MiniLM-L6-v2                    | HuggingFace         |
+| `clip-vit-b-32-text/`      | CLIP ViT-B-32 (text)                | HuggingFace         |
+| `clip-vit-b-32-vision/`    | CLIP ViT-B-32 (vision)              | HuggingFace         |
+| `depth-anything-v2/`       | Depth-Anything-v2-Small             | HuggingFace         |
+| `depth-pro/`               | Apple Depth Pro                     | Apple / HuggingFace |
+| `mediapipe-face-detector/` | MediaPipe Face Detector (BlazeFace) | Google MediaPipe    |
+| `modernbert-base/`         | ModernBERT-base                     | HuggingFace         |
+| `qwen/`                    | Qwen 1.5/2.5/3 (0.5B-0.6B)         | HuggingFace         |
+| `rf-detr/`                 | RF-DETR Small                       | Roboflow            |
+| `silero-vad/`              | Silero VAD                          | Silero              |
+| `smollm/`                  | SmolLM / SmolLM2 (135M)             | HuggingFace         |
+| `yolo/`                    | YOLO (v5/v8/v10/v11/v12)            | Ultralytics         |

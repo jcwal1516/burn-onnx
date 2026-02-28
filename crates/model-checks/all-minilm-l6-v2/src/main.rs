@@ -89,8 +89,10 @@ fn main() {
     // Initialize the model (using default which includes the converted weights)
     println!("Initializing all-MiniLM-L6-v2 model...");
     let start = Instant::now();
-    let device = Default::default();
-    let model: all_minilm_l6_v2::Model<MyBackend> = all_minilm_l6_v2::Model::default();
+    let device = model_checks_common::best_device!();
+    let weights_path = concat!(env!("OUT_DIR"), "/model/all-minilm-l6-v2_opset16.bpk");
+    let model: all_minilm_l6_v2::Model<MyBackend> =
+        all_minilm_l6_v2::Model::from_file(weights_path, &device);
     let init_time = start.elapsed();
     println!("  Model initialized in {:.2?}", init_time);
 

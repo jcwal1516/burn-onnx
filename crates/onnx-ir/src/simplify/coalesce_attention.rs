@@ -129,17 +129,23 @@ fn try_match_sdpa(
 
     // 4. Extract Q and K tensors
     // 4a. Standard: K comes through Transpose that swaps last two dims
-    let (q_arg, k_arg, extra_replacements) = if let Some((q, k, q_prescale)) =
+    let (q_arg, k_arg, extra_replacements) = if let Some((q, k, prescale)) =
         try_standard_k_pattern(qk_matmul, nodes, producer, consumer)
     {
-        // Q-pre-scaled pattern (e.g. DINOv2): Mul(Q, scale) -> MatMul(Q_scaled, K^T)
-        // Only use Q pre-scale when no post-scale was already found
+        // Pre-scaled pattern: extract prescale and unwrap Q from its Mul.
+        // Only use when no post-scale was already found.
         if scale_value.is_none()
-            && let Some(prescale) = q_prescale
+            && let Some(prescale) = prescale
         {
             scale_value = Some(prescale.scale);
             (prescale.q_real, k, vec![])
         } else {
+            if scale_value.is_some() && prescale.is_some() {
+                log::warn!(
+                    "Attention pattern has both post-scale and pre-scale; \
+                     pre-scale will be ignored"
+                );
+            }
             (q, k, vec![])
         }
     }
@@ -364,55 +370,93 @@ fn is_last_two_dims_swap(transpose: &RawNode) -> Option<bool> {
     Some(true)
 }
 
-struct QPrescale {
+struct AttentionPrescale {
     q_real: Argument,
     scale: f64,
 }
 
 /// Standard pattern: K comes through Transpose that swaps last two dims.
-/// Returns (Q_arg, K_arg, q_prescale) where K is from before the transpose.
-/// Q_arg is always the direct MatMul input (possibly Q_scaled). If Q comes
-/// from Mul(Q_real, constant), QPrescale provides the unwrapped Q and scale.
+/// Returns (Q_arg, K_arg, prescale) where K is from before the transpose.
+/// Q_arg is always the direct MatMul input (possibly Q_scaled). If Q or K
+/// come from Mul(tensor, constant), AttentionPrescale provides the unwrapped Q and
+/// combined scale.
+///
+/// Also handles the symmetric pre-scaled variant (DepthPro):
+/// ```text
+/// MatMul.input[1] -> Mul(Transpose_output, scale)
+/// ```
+/// When K is wrapped in a Mul, the Transpose is looked up through the Mul.
+/// If Q is also wrapped in a Mul with an extractable scale, both scales are
+/// combined into a single effective scale.
 fn try_standard_k_pattern(
     qk_matmul: &RawNode,
     nodes: &[RawNode],
     producer: &HashMap<String, usize>,
     consumer: &HashMap<String, Vec<usize>>,
-) -> Option<(Argument, Argument, Option<QPrescale>)> {
-    let k_transpose_idx = *producer.get(&qk_matmul.inputs[1].name)?;
-    let k_transpose = &nodes[k_transpose_idx];
-    if k_transpose.node_type != NodeType::Transpose {
+) -> Option<(Argument, Argument, Option<AttentionPrescale>)> {
+    let k_producer_idx = *producer.get(&qk_matmul.inputs[1].name)?;
+    let k_producer = &nodes[k_producer_idx];
+
+    let (k_arg, k_scale) = if k_producer.node_type == NodeType::Transpose {
+        // Direct Transpose path
+        if !is_last_two_dims_swap(k_producer)? {
+            return None;
+        }
+        if !is_single_use(&k_producer.outputs[0].name, consumer) {
+            return None;
+        }
+        (k_producer.inputs[0].clone(), None)
+    } else if k_producer.node_type == NodeType::Mul {
+        // Mul-wrapped Transpose path (DepthPro symmetric pre-scaling)
+        if !is_single_use(&k_producer.outputs[0].name, consumer) {
+            return None;
+        }
+        let (k_tensor_name, k_scale_val) = try_extract_scale(k_producer, consumer)?;
+        let k_transpose_idx = *producer.get(k_tensor_name)?;
+        let k_transpose = &nodes[k_transpose_idx];
+        if k_transpose.node_type != NodeType::Transpose {
+            return None;
+        }
+        if !is_last_two_dims_swap(k_transpose)? {
+            return None;
+        }
+        if !is_single_use(&k_transpose.outputs[0].name, consumer) {
+            return None;
+        }
+        (k_transpose.inputs[0].clone(), Some(k_scale_val))
+    } else {
         return None;
-    }
-    if !is_last_two_dims_swap(k_transpose)? {
-        return None;
-    }
-    if !is_single_use(&k_transpose.outputs[0].name, consumer) {
-        return None;
-    }
+    };
 
     let q_input = &qk_matmul.inputs[0];
-    let k_arg = k_transpose.inputs[0].clone();
 
-    // Check if Q comes from Mul(Q_real, scale_constant), i.e. Q-pre-scaled pattern.
-    // DINOv2 scales Q by 1/sqrt(head_dim) before the QK matmul.
-    let mut q_prescale = None;
-    if let Some(&q_mul_idx) = producer.get(&q_input.name) {
-        let q_mul = &nodes[q_mul_idx];
-        if q_mul.node_type == NodeType::Mul
-            && is_single_use(&q_mul.outputs[0].name, consumer)
-            && let Some((_, scale)) = try_extract_scale(q_mul, consumer)
-        {
-            let q_real = if q_mul.inputs[1].value().is_some() {
-                q_mul.inputs[0].clone()
-            } else {
-                q_mul.inputs[1].clone()
-            };
-            q_prescale = Some(QPrescale { q_real, scale });
-        }
-    }
+    // Check if Q comes from Mul(Q_real, scale_constant).
+    // DINOv2 scales only Q; DepthPro scales both Q and K symmetrically.
+    let prescale = if let Some(&q_mul_idx) = producer.get(&q_input.name)
+        && let q_mul = &nodes[q_mul_idx]
+        && q_mul.node_type == NodeType::Mul
+        && is_single_use(&q_mul.outputs[0].name, consumer)
+        && let Some((_, q_scale_val)) = try_extract_scale(q_mul, consumer)
+    {
+        let q_real = if q_mul.inputs[1].value().is_some() {
+            q_mul.inputs[0].clone()
+        } else {
+            q_mul.inputs[1].clone()
+        };
+        let effective_scale = k_scale.map_or(q_scale_val, |ks| q_scale_val * ks);
+        Some(AttentionPrescale {
+            q_real,
+            scale: effective_scale,
+        })
+    } else {
+        // K-only scale (no Q Mul to unwrap): pass Q through unchanged
+        k_scale.map(|ks| AttentionPrescale {
+            q_real: q_input.clone(),
+            scale: ks,
+        })
+    };
 
-    Some((q_input.clone(), k_arg, q_prescale))
+    Some((q_input.clone(), k_arg, prescale))
 }
 
 /// Pre-scaled pattern: both QK MatMul inputs come from Mul nodes that share
@@ -1266,5 +1310,58 @@ mod tests {
         // Post-scale takes precedence: Div by 8.0 -> scale = 0.125
         let scale = attention.attrs.get("scale").unwrap().clone().into_f32();
         assert!((scale - 0.125).abs() < 1e-6);
+    }
+
+    /// Build symmetric pre-scaled SDPA (DepthPro pattern):
+    /// Q -> Mul(scale) ---------> MatMul -> Softmax(-1) -> MatMul(scores, V)
+    /// K -> Transpose([0,1,3,2]) -> Mul(scale) -/
+    fn build_symmetric_prescaled_sdpa(q_scale: Argument, k_scale: Argument) -> Vec<RawNode> {
+        vec![
+            transpose_node("transpose_k", "k", "k_t", vec![0, 1, 3, 2]),
+            binary_node("mul_q", NodeType::Mul, tensor4("q"), q_scale, "q_scaled"),
+            binary_node("mul_k", NodeType::Mul, tensor4("k_t"), k_scale, "k_scaled"),
+            matmul_node("qk_matmul", "q_scaled", "k_scaled", "qk"),
+            softmax_node("softmax", "qk", "attn_weights", -1),
+            matmul_node("sv_matmul", "attn_weights", "v", "output"),
+        ]
+    }
+
+    #[test]
+    fn test_symmetric_prescaled_sdpa() {
+        let sqrt_scale = (0.125_f32).sqrt();
+        let nodes = build_symmetric_prescaled_sdpa(
+            const_f32("q_scale", sqrt_scale),
+            const_f32("k_scale", sqrt_scale),
+        );
+        let result = coalesce_attention(nodes);
+
+        let attention = result
+            .iter()
+            .find(|n| n.node_type == NodeType::Attention)
+            .expect("should produce an Attention node");
+
+        // Q is unwrapped from the Mul
+        assert_eq!(attention.inputs[0].name, "q");
+        // K is from before the Transpose
+        assert_eq!(attention.inputs[1].name, "k");
+        assert_eq!(attention.inputs[2].name, "v");
+        assert_eq!(attention.outputs[0].name, "output");
+
+        // effective_scale = q_scale * k_scale = sqrt(0.125)^2 = 0.125
+        let scale = attention.attrs.get("scale").unwrap().clone().into_f32();
+        assert!((scale - 0.125).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_symmetric_prescaled_sdpa_no_match_without_values() {
+        // Dynamic (non-constant) scales: can't extract effective_scale -> should NOT match
+        let nodes =
+            build_symmetric_prescaled_sdpa(dynamic_scalar("q_scale"), dynamic_scalar("k_scale"));
+        let result = coalesce_attention(nodes);
+
+        assert!(
+            !result.iter().any(|n| n.node_type == NodeType::Attention),
+            "should not match when scales are dynamic (non-constant)"
+        );
     }
 }

@@ -53,6 +53,57 @@ fn generate_branch_code(
     (body, output_tuple)
 }
 
+/// Find dimensions to unsqueeze so a tensor of `branch_rank` matches `target_rank`.
+///
+/// Compares static shapes to locate size-1 dimensions in the target that are absent
+/// in the branch. Falls back to inserting dims at the end if shapes are unavailable.
+fn find_unsqueeze_dims(
+    branch_shape: Option<&[Option<usize>]>,
+    target_shape: Option<&[Option<usize>]>,
+    branch_rank: usize,
+    target_rank: usize,
+) -> Vec<isize> {
+    if let (Some(b_shape), Some(t_shape)) = (branch_shape, target_shape) {
+        // Walk both shapes, finding positions in target that are size-1 and
+        // missing from the branch shape.
+        let mut dims = Vec::new();
+        let mut b_idx = 0;
+        let mut misaligned = false;
+        for (t_idx, t_dim) in t_shape.iter().enumerate() {
+            if b_idx < b_shape.len() && b_shape[b_idx] == *t_dim {
+                b_idx += 1;
+            } else if *t_dim == Some(1) {
+                dims.push(t_idx as isize);
+            } else {
+                misaligned = true;
+                log::warn!(
+                    "If branch shapes don't align cleanly (branch {:?} vs target {:?}), \
+                     falling back to trailing unsqueeze dims",
+                    b_shape,
+                    t_shape
+                );
+                break;
+            }
+        }
+        if !misaligned && dims.len() == target_rank - branch_rank {
+            return dims;
+        }
+        if !misaligned {
+            log::warn!(
+                "If branch shape alignment produced {} dims but expected {} \
+                 (branch {:?} vs target {:?}), falling back to trailing unsqueeze dims",
+                dims.len(),
+                target_rank - branch_rank,
+                b_shape,
+                t_shape,
+            );
+        }
+    }
+
+    // Fallback: insert trailing dimensions
+    (branch_rank as isize..target_rank as isize).collect()
+}
+
 impl NodeCodegen for onnx_ir::node::if_node::IfNode {
     fn inputs(&self) -> &[Argument] {
         &self.inputs
@@ -82,7 +133,16 @@ impl NodeCodegen for onnx_ir::node::if_node::IfNode {
                 let cond_tensor = scope.arg(cond_arg);
                 quote! { #cond_tensor.into_scalar().elem::<bool>() }
             }
-            other => panic!("If condition must be scalar or tensor, got {:?}", other),
+            ArgType::Shape(rank) => {
+                // Shape comparison result: [i64; N] with 0/1 values.
+                let name = arg_to_ident(cond_arg);
+                if *rank == 0 {
+                    // Empty shape: no elements to test, treat as false.
+                    quote! { false }
+                } else {
+                    quote! { #name[0] != 0 }
+                }
+            }
         };
 
         // Get outer-scope reference inputs (all inputs after condition)
@@ -104,6 +164,13 @@ impl NodeCodegen for onnx_ir::node::if_node::IfNode {
             scope.scope(),
             node_position,
         );
+
+        // Handle rank mismatches between branches by adding unsqueeze_dims
+        // to the lower-rank branch so both arms of the `if` have the same type.
+        let then_output =
+            align_branch_output(then_output, &self.config.then_branch.outputs, &self.outputs);
+        let else_output =
+            align_branch_output(else_output, &self.config.else_branch.outputs, &self.outputs);
 
         // Generate output variable declarations
         let output_names: Vec<_> = self.outputs.iter().map(arg_to_ident).collect();
@@ -136,6 +203,34 @@ impl NodeCodegen for onnx_ir::node::if_node::IfNode {
         register_subgraph_imports(&self.config.then_branch);
         register_subgraph_imports(&self.config.else_branch);
     }
+}
+
+/// Wrap a branch output expression with unsqueeze_dims if its rank is lower
+/// than the If node's output rank.
+fn align_branch_output(
+    branch_output: TokenStream,
+    branch_outputs: &[Argument],
+    if_outputs: &[Argument],
+) -> TokenStream {
+    if branch_outputs.len() == 1 && if_outputs.len() == 1 {
+        let branch_rank = branch_outputs[0].ty.rank();
+        let target_rank = if_outputs[0].ty.rank();
+
+        if branch_rank < target_rank {
+            let dims = find_unsqueeze_dims(
+                branch_outputs[0].ty.static_shape().map(|v| v.as_slice()),
+                if_outputs[0].ty.static_shape().map(|v| v.as_slice()),
+                branch_rank,
+                target_rank,
+            );
+            let target_rank_lit = target_rank;
+            return quote! {
+                #branch_output.unsqueeze_dims::<#target_rank_lit>(&[#(#dims),*])
+            };
+        }
+    }
+    // Multi-output or same-rank: no transformation needed
+    branch_output
 }
 
 #[cfg(test)]

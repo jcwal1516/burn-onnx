@@ -71,7 +71,7 @@ fn main() {
     // Initialize the model with weights
     println!("Initializing model...");
     let start = Instant::now();
-    let device = Default::default();
+    let device = model_checks_common::best_device!();
     let weights_path = concat!(env!("OUT_DIR"), "/model/face_detector.bpk");
     let model: Model<MyBackend> = Model::from_file(weights_path, &device);
     let init_time = start.elapsed();

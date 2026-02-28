@@ -466,6 +466,37 @@ identical outputs.
 - Removes unreferenced constant nodes
 - Constructs the final `OnnxGraph` with inputs, outputs, and nodes
 
+### Submodule Partitioning
+
+Large models (>200 nodes) are automatically partitioned into `SubmoduleN` structs during code
+generation. Without partitioning, the generated `forward()` method becomes a single enormous
+function that takes very long to compile.
+
+The algorithm (in `crates/burn-onnx/src/burn/partition.rs`):
+
+1. **Constant reordering**: Moves each constant node to just before its first consumer. ONNX
+   exporters typically cluster constants at the top of the graph, which inflates cut widths at
+   early partition boundaries. Reordering ensures constants land in the same chunk as their
+   consumers and never appear in `forward()` signatures (they become struct fields instead).
+
+2. **Cut width computation**: A sweep-line algorithm computes the number of live values (tensors,
+   scalars, shapes) crossing each position in the node list. A narrow cut means few values need
+   to be passed between submodules.
+
+3. **Greedy partitioning**: Picks the narrowest cut in each window of `[MIN_CHUNK, MAX_CHUNK]`
+   nodes. If no acceptable cut exists in a window, it skips ahead rather than giving up.
+
+4. **Interface computation**: For each chunk, determines which values flow in (inputs to
+   `forward()`) and which flow out (return values).
+
+Constants: `MIN_GRAPH_SIZE=200`, `MIN_CHUNK=64`, `MAX_CHUNK=256`, `MAX_CUT_WIDTH=64`.
+
+The top-level `Model` struct contains `SubmoduleN` fields and chains their `forward()` calls.
+Weight paths are auto-prefixed (`submoduleN.field.weight`) for `load_from` routing. Small models
+take the flat codegen path with zero behavior change.
+
+Partitioning is enabled by default. Use `ModelGen::new().partition(false)` to disable it.
+
 ### NodeProcessor Trait
 
 The `NodeProcessor` trait (defined in `crates/onnx-ir/src/processor.rs`) is the core abstraction for
@@ -828,15 +859,19 @@ cargo xtask model-check --fail-fast
 
 | Model | Directory | Notes |
 |---|---|---|
-| Silero VAD | `silero-vad` | Voice activity detection |
+| ALBERT | `albert` | Language model (requires Python 3.11) |
 | all-MiniLM-L6-v2 | `all-minilm-l6-v2` | Sentence embeddings |
 | CLIP ViT-B-32 text | `clip-vit-b-32-text` | Text encoder |
 | CLIP ViT-B-32 vision | `clip-vit-b-32-vision` | Vision encoder |
-| ModernBERT-base | `modernbert-base` | Language model |
-| RF-DETR Small | `rf-detr` | Object detection |
-| ALBERT | `albert` | Language model (requires Python 3.11) |
-| YOLO v8n | `yolo` | Object detection |
+| Depth-Anything-v2 | `depth-anything-v2` | Monocular depth estimation |
+| Depth Pro | `depth-pro` | Monocular depth estimation (large, partitioned) |
 | MediaPipe Face Detector | `mediapipe-face-detector` | Face detection |
+| ModernBERT-base | `modernbert-base` | Language model |
+| Qwen 1.5/2.5/3 | `qwen` | Language model |
+| RF-DETR Small | `rf-detr` | Object detection |
+| Silero VAD | `silero-vad` | Voice activity detection |
+| SmolLM / SmolLM2 | `smollm` | Language model |
+| YOLO | `yolo` | Object detection (v5/v8/v10/v11/v12) |
 
 ### Model Artifacts
 
@@ -856,6 +891,19 @@ Set `BURN_CACHE_DIR` to override the base cache path (useful for CI).
 4. Add `build.rs` to generate Burn code from the ONNX model via `ModelGen`
 5. Add `src/main.rs` to load the model, run inference, and compare against reference outputs
 6. Register the model in `xtask/src/model_check.rs` in the `MODELS` array
+
+In `src/main.rs`, use `Model::from_file(bpk_path, &device)` to load the model on the correct
+device. Do NOT use `Model::default().to_device(&device)` because the generated code stores the
+device as `Ignored<B::Device>` which `to_device()` does not update, causing device mismatch errors
+on GPU backends:
+
+```rust
+model_checks_common::backend_type!();
+
+let device = model_checks_common::best_device!();
+let weights_path = concat!(env!("OUT_DIR"), "/model/<model-name>.bpk");
+let model: Model<MyBackend> = Model::from_file(weights_path, &device);
+```
 
 ## Resources
 

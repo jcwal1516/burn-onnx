@@ -70,6 +70,8 @@ pub struct ModelGen {
     embed_states: bool,
     /// Whether to run graph simplification passes (default: true)
     simplify: bool,
+    /// Whether to partition large models into submodules (default: true)
+    partition: bool,
 }
 
 impl Default for ModelGen {
@@ -80,6 +82,7 @@ impl Default for ModelGen {
             development: false,
             embed_states: false,
             simplify: true,
+            partition: true,
         }
     }
 }
@@ -211,13 +214,23 @@ impl ModelGen {
         self
     }
 
-    /// Enable or disable graph simplification passes (default: true)
+    /// Enable or disable graph simplification passes (default: true).
     ///
     /// When enabled, optimization passes like dead node elimination, common
     /// subexpression elimination (CSE), and pattern-based simplifications
     /// are applied to the ONNX IR before code generation.
     pub fn simplify(&mut self, simplify: bool) -> &mut Self {
         self.simplify = simplify;
+        self
+    }
+
+    /// Enable or disable submodule partitioning for large models (default: true).
+    ///
+    /// When enabled, models with more than 200 nodes are automatically split into
+    /// smaller submodule structs to keep generated code compilable. Each submodule
+    /// gets its own `forward()` method, and the top-level `Model` delegates to them.
+    pub fn partition(&mut self, partition: bool) -> &mut Self {
+        self.partition = partition;
         self
     }
 
@@ -359,6 +372,7 @@ impl ModelGen {
             .with_burnpack(bpk_file, self.embed_states)
             .with_blank_space(true)
             .with_top_comment(top_comment)
+            .with_partition(self.partition)
             .codegen()
     }
 }

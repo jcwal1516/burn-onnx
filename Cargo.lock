@@ -807,6 +807,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn-onnx-model-checks-depth-pro"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
 name = "burn-onnx-model-checks-mediapipe-face-detector"
 version = "0.1.0"
 dependencies = [

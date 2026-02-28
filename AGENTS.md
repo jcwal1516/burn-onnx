@@ -149,6 +149,7 @@ cargo insta review                  # Review snapshot changes
 - `crates/onnx-ir/src/ir/node.rs` - `Node` enum and `define_node_enum!` macro
 - `crates/burn-onnx/src/burn/node_codegen.rs` - Codegen dispatch macro
 - `crates/burn-onnx/src/burn/graph.rs` - Graph code generation
+- `crates/burn-onnx/src/burn/partition.rs` - Submodule partitioning for large models
 - `DEVELOPMENT-GUIDE.md` - Full implementation guide with code examples
 - `SUPPORTED-ONNX-OPS.md` - Operator support table
 - `onnx-spec/ops/<OpName>.md` - Official ONNX operator specs
