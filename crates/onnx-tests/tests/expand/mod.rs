@@ -6,7 +6,8 @@ include_models!(
     expand_tensor,
     expand_shape,
     expand_with_where_shape,
-    expand_max_semantics
+    expand_max_semantics,
+    expand_dynamic_where
 );
 
 #[cfg(test)]
@@ -93,6 +94,25 @@ mod tests {
         let expected_shape = Shape::from([2, 3, 4]);
 
         assert_eq!(output.shape(), expected_shape);
+    }
+
+    #[test]
+    fn expand_dynamic_where() {
+        // Tests Expand with a fully dynamic shape from a Where/Shape chain.
+        // The shape tensor has no static_shape info, exercising the input-rank fallback.
+        let device = Default::default();
+        let model: expand_dynamic_where::Model<TestBackend> =
+            expand_dynamic_where::Model::new(&device);
+
+        let input_data = Tensor::<TestBackend, 1>::from_floats([10.0, 20.0, 30.0], &device);
+        let input_flag = true;
+
+        let output = model.forward(input_data.clone(), input_flag);
+
+        // flag=true -> shape = Shape(input) = [3] -> Expand is identity
+        let expected_shape = Shape::from([3]);
+        assert_eq!(output.shape(), expected_shape);
+        output.into_data().assert_eq(&input_data.into_data(), true);
     }
 
     #[test]

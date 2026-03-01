@@ -1,0 +1,22 @@
+[package]
+name = "burn-onnx-model-checks-stable-diffusion-xl"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+
+[features]
+default = ["ndarray"]
+ndarray = ["burn/ndarray"]
+tch = ["burn/tch"]
+wgpu = ["burn/wgpu", "burn/autotune", "burn/fusion"]
+metal = ["burn/metal", "burn/autotune", "burn/fusion"]
+
+[dependencies]
+burn = { workspace = true }
+burn-store = { workspace = true, features = ["std", "burnpack", "pytorch"] }
+model-checks-common = { path = "../common" }
+
+[build-dependencies]
+burn-onnx = { path = "../../burn-onnx" }
+model-checks-common = { path = "../common" }

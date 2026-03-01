@@ -54,6 +54,9 @@ struct ModelInfo {
 // Note: depth-pro is excluded from xtask because it is too large for CI
 // (1500+ nodes, ~12K lines of generated code, minutes-long compile times).
 // Use `cargo build/run` directly in crates/model-checks/depth-pro/ instead.
+//
+// Note: stable-diffusion-xl (SDXL UNet) is excluded for the same reason
+// (28K+ nodes, ~5GB weights). Use crates/model-checks/stable-diffusion-xl/.
 const MODELS: &[ModelInfo] = &[
     ModelInfo {
         id: "silero-vad",
