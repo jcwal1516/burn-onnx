@@ -45,8 +45,13 @@ impl NodeCodegen for onnx_ir::node::range::RangeNode {
         let limit = range_param_tokens(&self.config.limit, &self.inputs, scope);
         let delta = range_param_tokens(&self.config.delta, &self.inputs, scope);
 
+        // arange_step uses the backend's default int element type (I32 on GPU, I64 on NdArray).
+        // Cast to the ONNX-specified dtype to avoid DTypeMismatch on GPU backends.
+        let output_dtype = self.outputs.first().unwrap().ty.elem_type().to_tokens();
+
         quote! {
-            let #output = Tensor::arange_step(#start..#limit, #delta as usize, &*self.device);
+            let #output = Tensor::arange_step(#start..#limit, #delta as usize, &*self.device)
+                .cast(#output_dtype);
         }
     }
 }
@@ -72,7 +77,8 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self) -> Tensor<B, 1, Int> {
-            let output = Tensor::arange_step(0i64..10i64, 2i64 as usize, &*self.device);
+            let output = Tensor::arange_step(0i64..10i64, 2i64 as usize, &*self.device)
+                .cast(burn::tensor::DType::I64);
             output
         }
         ");

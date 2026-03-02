@@ -18,30 +18,31 @@ impl NodeCodegen for onnx_ir::node::argmax::ArgMaxNode {
         let input = scope.arg(input_arg);
         let output = arg_to_ident(output_arg);
 
+        // argmax uses the backend's default int element type (I32 on GPU, I64 on NdArray).
+        // Cast to the ONNX-specified dtype to avoid DTypeMismatch on GPU backends.
         match &output_arg.ty {
             onnx_ir::ir::ArgType::Tensor(tensor) => {
+                let output_dtype = tensor.dtype.to_tokens();
                 if self.config.keepdims {
-                    // keepdims=True: Burn's argmax keeps dimensions by default
                     quote! {
-                        let #output = #input.argmax(#axis);
+                        let #output = #input.argmax(#axis).cast(#output_dtype);
                     }
                 } else {
-                    // keepdims=False: use argmax followed by squeeze to remove the kept dimension
                     let output_rank = tensor.rank;
                     quote! {
                         let argmax_result = #input.argmax(#axis);
-                        let #output = argmax_result.squeeze_dim::<#output_rank>(#axis);
+                        let #output = argmax_result.squeeze_dim::<#output_rank>(#axis).cast(#output_dtype);
                     }
                 }
             }
-            onnx_ir::ir::ArgType::ScalarTensor(_) => {
-                // 1D tensor with keepdims=false -> keep as Tensor<B, 1> on device
+            onnx_ir::ir::ArgType::ScalarTensor(dtype) => {
+                let output_dtype = dtype.to_tokens();
                 quote! {
-                    let #output = #input.argmax(#axis).reshape([1]);
+                    let #output = #input.argmax(#axis).reshape([1]).cast(#output_dtype);
                 }
             }
             onnx_ir::ir::ArgType::ScalarNative(_) => {
-                // 1D tensor with keepdims=false -> extract to native scalar
+                // Extracted to native scalar, no cast needed
                 quote! {
                     let argmax_result = #input.argmax(#axis);
                     let #output = argmax_result.into_scalar().elem::<i64>();
@@ -70,7 +71,7 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self, input: Tensor<B, 3>) -> Tensor<B, 3, Int> {
-            let output = input.argmax(1);
+            let output = input.argmax(1).cast(burn::tensor::DType::I64);
             output
         }
         ");
@@ -88,7 +89,7 @@ mod tests {
         assert_snapshot!(code, @r"
         pub fn forward(&self, input: Tensor<B, 4>) -> Tensor<B, 3, Int> {
             let argmax_result = input.argmax(2);
-            let output = argmax_result.squeeze_dim::<3usize>(2);
+            let output = argmax_result.squeeze_dim::<3usize>(2).cast(burn::tensor::DType::I64);
             output
         }
         ");
@@ -105,7 +106,7 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self, input: Tensor<B, 1>) -> Tensor<B, 1, Int> {
-            let output = input.argmax(0).reshape([1]);
+            let output = input.argmax(0).reshape([1]).cast(burn::tensor::DType::I64);
             output
         }
         ");
