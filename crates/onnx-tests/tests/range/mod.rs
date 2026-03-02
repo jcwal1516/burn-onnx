@@ -1,5 +1,11 @@
 use crate::include_models;
-include_models!(range, range_static, range_mixed, range_runtime);
+include_models!(
+    range,
+    range_static,
+    range_mixed,
+    range_runtime,
+    range_negative_delta
+);
 
 #[cfg(test)]
 mod tests {
@@ -76,6 +82,39 @@ mod tests {
         let output = model.forward(start, limit, delta);
 
         let expected = TensorData::from([5i64, 8, 11, 14, 17]);
+        output.to_data().assert_eq(&expected, true);
+
+        // Test case 3: negative delta (descending range 10 to 0 by -2)
+        let output = model.forward(10, 0, -2);
+
+        let expected = TensorData::from([10i64, 8, 6, 4, 2]);
+        output.to_data().assert_eq(&expected, true);
+
+        // Test case 4: negative delta with non-zero limit
+        let output = model.forward(20, 5, -3);
+
+        let expected = TensorData::from([20i64, 17, 14, 11, 8]);
+        output.to_data().assert_eq(&expected, true);
+
+        // Test case 5: empty range (start >= limit with positive delta)
+        let output = model.forward(10, 0, 2);
+        assert_eq!(output.dims(), [0]);
+
+        // Test case 6: empty range (start <= limit with negative delta)
+        let output = model.forward(0, 10, -1);
+        assert_eq!(output.dims(), [0]);
+    }
+
+    #[test]
+    fn range_negative_delta() {
+        let device = Default::default();
+        let model: range_negative_delta::Model<TestBackend> =
+            range_negative_delta::Model::new(&device);
+
+        // Descending range: start=10, limit=0, delta=-2
+        let output = model.forward();
+
+        let expected = TensorData::from([10i64, 8, 6, 4, 2]);
         output.to_data().assert_eq(&expected, true);
     }
 }

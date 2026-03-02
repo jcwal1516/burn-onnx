@@ -118,38 +118,33 @@ impl NodeProcessor for RangeProcessor {
         _opset: usize,
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
-        // TODO: Validate that all three inputs have the same dtype (type T constraint)
-        // ONNX spec requires start, limit, delta to all have the same type T.
-        // Current implementation infers output dtype from start (inputs[0]) but doesn't
-        // validate that limit and delta have matching types. Mismatched types should be rejected.
-        // Should add validation: inputs[1].dtype == inputs[0].dtype && inputs[2].dtype == inputs[0].dtype
-        // Location: After validate_output_count, before infer output dtype
+        // Validate that all three inputs have the same dtype (ONNX type T constraint)
+        let start_dtype = node.inputs[0].ty.elem_type();
+        for (i, name) in [(1, "limit"), (2, "delta")] {
+            let dtype = node.inputs[i].ty.elem_type();
+            if dtype != start_dtype {
+                return Err(ProcessError::TypeMismatch {
+                    expected: format!("{:?} (same as start)", start_dtype),
+                    actual: format!("{} has dtype {:?}", name, dtype),
+                });
+            }
+        }
 
-        // TODO: Validate that all inputs are scalar tensors
-        // ONNX spec requires start, limit, delta to be scalar tensors (rank 0 or shape [1]).
-        // Implementation extracts scalar values in extract_config but doesn't validate in infer_types.
-        // Should validate tensor ranks are 0 or shapes are [1].
-        // Location: After dtype validation
+        // Validate that all inputs are scalars (ONNX requires 0-D or 1-element 1-D)
+        for input in &node.inputs {
+            let is_valid = input.ty.is_scalar()
+                || matches!(&input.ty, ArgType::Tensor(t) if t.rank == 0)
+                || matches!(&input.ty, ArgType::Tensor(t) if t.rank == 1
+                    && t.static_shape.as_ref().is_some_and(|s| s == &[Some(1)]));
+            if !is_valid {
+                return Err(ProcessError::TypeMismatch {
+                    expected: "scalar input (0-D or 1-element 1-D tensor)".to_string(),
+                    actual: format!("{} has type {:?}", input.name, input.ty),
+                });
+            }
+        }
 
-        // TODO: Missing test coverage for delta=0 edge case
-        // What happens when delta is 0? Should produce empty output or error.
-        // Spec says "number_of_elements = max(ceil((limit - start) / delta), 0)"
-        // Division by zero case not tested. Add test: range_zero_delta
-
-        // TODO: Missing test coverage for float types
-        // Spec supports float and double, but tests only use int64.
-        // Add tests: range_float32, range_float64
-
-        // TODO: Missing test coverage for negative delta (descending range)
-        // Tests only cover positive delta (ascending). Spec allows negative delta.
-        // Add test: range_negative_delta (e.g., start=10, limit=0, delta=-2)
-
-        // TODO: Missing validation for empty range cases
-        // When start >= limit with positive delta, or start <= limit with negative delta,
-        // the range should be empty. No test validates this. Add test: range_empty
-
-        // Infer output dtype from input types (all inputs should have the same type T)
-        let output_dtype = node.inputs[0].ty.elem_type();
+        let output_dtype = start_dtype;
 
         // Range operation always produces rank 1 tensor
         node.outputs[0].ty = ArgType::Tensor(TensorType {
@@ -190,6 +185,14 @@ impl NodeProcessor for RangeProcessor {
         let start = get_range_input(node, 0, "start")?;
         let limit = get_range_input(node, 1, "limit")?;
         let delta = get_range_input(node, 2, "delta")?;
+
+        // Reject delta=0 (causes division by zero in element count formula)
+        if let RangeInput::Static(0) = &delta {
+            return Err(ProcessError::InvalidAttribute {
+                name: "delta".to_string(),
+                reason: "delta must not be zero".to_string(),
+            });
+        }
 
         let config = RangeConfig {
             start,
@@ -259,5 +262,68 @@ mod tests {
                 actual: 2
             })
         ));
+    }
+
+    #[test]
+    fn test_range_dtype_mismatch() {
+        let node = TestNodeBuilder::new(NodeType::Range, "test_range")
+            .input_scalar_i64("start")
+            .input_scalar_f32("limit") // mismatched
+            .input_scalar_i64("delta")
+            .output_tensor_i64("output", 0, None)
+            .build();
+        let mut node = node;
+        let processor = RangeProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(matches!(result, Err(ProcessError::TypeMismatch { .. })));
+    }
+
+    #[test]
+    fn test_range_non_scalar_input_rank2() {
+        let node = TestNodeBuilder::new(NodeType::Range, "test_range")
+            .input_tensor_i64("start", 2, None) // rank 2, not scalar
+            .input_scalar_i64("limit")
+            .input_scalar_i64("delta")
+            .output_tensor_i64("output", 0, None)
+            .build();
+        let mut node = node;
+        let processor = RangeProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(matches!(result, Err(ProcessError::TypeMismatch { .. })));
+    }
+
+    #[test]
+    fn test_range_non_scalar_input_rank1_multi_element() {
+        // Rank 1 with shape [5] is not a valid scalar for Range
+        let node = TestNodeBuilder::new(NodeType::Range, "test_range")
+            .input_tensor_i64("start", 1, Some(vec![5]))
+            .input_scalar_i64("limit")
+            .input_scalar_i64("delta")
+            .output_tensor_i64("output", 0, None)
+            .build();
+        let mut node = node;
+        let processor = RangeProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(matches!(result, Err(ProcessError::TypeMismatch { .. })));
+    }
+
+    #[test]
+    fn test_range_delta_zero() {
+        let node = TestNodeBuilder::new(NodeType::Range, "test_range")
+            .input_scalar_tensor_i64("start", Some(0))
+            .input_scalar_tensor_i64("limit", Some(10))
+            .input_scalar_tensor_i64("delta", Some(0))
+            .output_tensor_i64("output", 0, None)
+            .build_with_graph_data(16);
+        let processor = RangeProcessor;
+        let result = processor.extract_config(&node, 16);
+        assert!(
+            matches!(result, Err(ProcessError::InvalidAttribute { .. })),
+            "delta=0 should be rejected, got: {:?}",
+            result
+        );
     }
 }

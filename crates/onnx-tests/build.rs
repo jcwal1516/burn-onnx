@@ -344,6 +344,7 @@ fn add_all_inputs(model_gen: &mut ModelGen) {
         .input("tests/range/range_static.onnx")
         .input("tests/range/range_mixed.onnx")
         .input("tests/range/range_runtime.onnx")
+        .input("tests/range/range_negative_delta.onnx")
         .input("tests/recip/recip.onnx")
         .input("tests/reduce/reduce_max.onnx")
         .input("tests/reduce/reduce_max_bool.onnx")
