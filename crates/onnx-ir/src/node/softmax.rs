@@ -57,12 +57,23 @@ impl NodeProcessor for SoftmaxProcessor {
         _opset: usize,
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
-        // FIXME: The spec requires the input rank to be >= 1 for the axis attribute to be valid.
-        // The implementation should validate that the tensor rank is at least 1.
-        // Edge case: what happens with a scalar (rank-0) input? Should be rejected.
+        // The spec requires the input rank to be >= 1 for the axis attribute to be valid.
+        let rank = match &node.inputs[0].ty {
+            ArgType::Tensor(tensor) => tensor.rank,
+            _ => {
+                return Err(ProcessError::TypeMismatch {
+                    expected: "Tensor with rank >= 1".to_string(),
+                    actual: format!("{:?}", node.inputs[0].ty),
+                });
+            }
+        };
 
-        // TODO: Missing validation that axis is in valid range [-rank, rank-1].
-        // Out-of-bounds axis values (after negative index handling) should be rejected.
+        if rank == 0 {
+            return Err(ProcessError::Custom(
+                "Softmax requires input rank >= 1; rank-0 (scalar) inputs are not supported"
+                    .to_string(),
+            ));
+        }
 
         // Infer output type
         crate::processor::same_as_input(node);
@@ -93,9 +104,24 @@ impl NodeProcessor for SoftmaxProcessor {
             }
         }
 
+        // Validate axis is in valid range [-rank, rank-1]
+        let rank_i64 = tensor.rank as i64;
+        if axis < -rank_i64 || axis >= rank_i64 {
+            return Err(ProcessError::InvalidAttribute {
+                name: "axis".to_string(),
+                reason: format!(
+                    "axis {} is out of range for input rank {}; expected in [{}, {}]",
+                    axis,
+                    tensor.rank,
+                    -rank_i64,
+                    rank_i64 - 1
+                ),
+            });
+        }
+
         // if axis is negative, it is counted from the end
         if axis < 0 {
-            axis += tensor.rank as i64;
+            axis += rank_i64;
         }
 
         let config = SoftmaxConfig {
@@ -134,8 +160,7 @@ mod tests {
 
     #[test]
     fn test_softmax_config_basic() {
-        let node = create_test_node(-1, 3);
-        let mut node = node;
+        let mut node = create_test_node(-1, 3);
         let processor = SoftmaxProcessor;
         let prefs = OutputPreferences::new();
         let config = processor.extract_config(&node, 16).unwrap();
@@ -145,8 +170,7 @@ mod tests {
 
     #[test]
     fn test_softmax_config_explicit_axis() {
-        let node = create_test_node(1, 3);
-        let mut node = node;
+        let mut node = create_test_node(1, 3);
         let processor = SoftmaxProcessor;
         let prefs = OutputPreferences::new();
         let config = processor.extract_config(&node, 16).unwrap();
@@ -177,18 +201,60 @@ mod tests {
         ));
     }
 
-    // TODO: Missing test for scalar (rank-0) input - should be rejected as rank must be >= 1.
+    #[test]
+    fn test_softmax_rank_zero_rejected() {
+        // Rank-0 (scalar) input should be rejected - axis is not valid for scalars
+        let mut node = create_test_node(0, 0);
+        let processor = SoftmaxProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(
+            matches!(result, Err(ProcessError::Custom(_))),
+            "Expected error for rank-0 input, got: {:?}",
+            result
+        );
+    }
 
-    // TODO: Missing test for axis out of range - e.g., axis=5 for rank-3 tensor.
+    #[test]
+    fn test_softmax_axis_out_of_range() {
+        // axis=5 for rank-3 tensor should be rejected
+        let node = create_test_node(5, 3);
+        let processor = SoftmaxProcessor;
+        let result = processor.extract_config(&node, 16);
+        assert!(
+            matches!(
+                result,
+                Err(ProcessError::InvalidAttribute { ref name, .. }) if name == "axis"
+            ),
+            "Expected InvalidAttribute error for out-of-range axis, got: {:?}",
+            result
+        );
+    }
 
-    // TODO: Missing test for opset 13 behavior change - spec changed from 2D coercion to direct axis operation.
-    // Need test to verify opset < 13 is rejected and opset 13+ works correctly.
+    #[test]
+    fn test_softmax_axis_negative_out_of_range() {
+        // axis=-4 for rank-3 tensor should be rejected
+        let node = create_test_node(-4, 3);
+        let processor = SoftmaxProcessor;
+        let result = processor.extract_config(&node, 16);
+        assert!(
+            matches!(
+                result,
+                Err(ProcessError::InvalidAttribute { ref name, .. }) if name == "axis"
+            ),
+            "Expected InvalidAttribute error for negative out-of-range axis, got: {:?}",
+            result
+        );
+    }
 
-    // TODO: Missing test for type constraints - Softmax only supports float types.
-    // Need test to verify integer input is rejected (or properly handled).
-
-    // TODO: Missing test for 1D tensor with axis=0 - simplest valid case not tested.
-
-    // TODO: Missing test for negative axis normalization - axis=-1 should work correctly.
-    // Current test has this but doesn't verify the actual behavior, only config extraction.
+    #[test]
+    fn test_softmax_1d_axis_zero() {
+        // Simplest valid case: 1D tensor with axis=0
+        let mut node = create_test_node(0, 1);
+        let processor = SoftmaxProcessor;
+        let prefs = OutputPreferences::new();
+        let config = processor.extract_config(&node, 16).unwrap();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+        assert_eq!(config.axis, 0);
+    }
 }

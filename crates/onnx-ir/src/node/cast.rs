@@ -27,6 +27,15 @@ use crate::processor::{
 };
 use crate::proto_conversion::element_type_from_proto;
 
+/// TensorProto DataType IDs for Float8 variants (not supported by Burn).
+/// The `saturate` (opset 19+) and `round_mode` (opset 21+) Cast attributes are
+/// float8-specific and are therefore also unsupported.
+const FLOAT8E4M3FN: i64 = 17;
+const FLOAT8E4M3FNUZ: i64 = 18;
+const FLOAT8E5M2: i64 = 19;
+const FLOAT8E5M2FNUZ: i64 = 20;
+const FLOAT8E8M0: i64 = 24;
+
 /// Configuration for Cast operations
 #[derive(Debug, Clone, new)]
 pub struct CastConfig {
@@ -69,15 +78,6 @@ impl NodeProcessor for CastProcessor {
         opset: usize,
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
-        // TODO: Add validation for unexpected attributes
-        // FIXME: Spec mentions 'saturate' attribute (opset 19+) for float8 conversions - not validated or tested
-        // FIXME: Spec mentions 'round_mode' attribute (opset 21+) for float8e8m0 conversion - not validated or tested
-        // TODO: Add test for string tensor casting - spec supports casting from string (e.g., "3.14" to float)
-        // TODO: Add test for casting to/from bfloat16 (opset 13+) - mentioned in spec but no test coverage
-        // TODO: Add test for float8 types (e4m3fn, e4m3fnuz, e5m2, e5m2fnuz) - opset 19+
-        // TODO: Validate 'to' attribute value is in valid TensorProto DataType enum range
-        // TODO: Add test for casting from complex types (should error per spec)
-
         // Get reference to config for type inference
         let config = self
             .extract_config(node, opset)
@@ -128,11 +128,29 @@ impl NodeProcessor for CastProcessor {
     fn extract_config(&self, node: &RawNode, _opset: usize) -> Result<Self::Config, ProcessError> {
         // Extract the target element type from attributes
         let elem_type = match node.attrs.get("to") {
-            Some(AttributeValue::Int64(type_id)) => element_type_from_proto(*type_id as i32)
-                .map_err(|_| ProcessError::InvalidAttribute {
-                    name: "to".to_string(),
-                    reason: format!("unsupported dtype: {}", type_id),
-                })?,
+            Some(AttributeValue::Int64(type_id)) => {
+                // Float8 types are not supported. The saturate (opset 19+) and
+                // round_mode (opset 21+) attributes are float8-specific and are
+                // therefore also unsupported.
+                if matches!(
+                    *type_id,
+                    FLOAT8E4M3FN | FLOAT8E4M3FNUZ | FLOAT8E5M2 | FLOAT8E5M2FNUZ | FLOAT8E8M0
+                ) {
+                    return Err(ProcessError::InvalidAttribute {
+                        name: "to".to_string(),
+                        reason: format!(
+                            "Float8 dtype (type_id={type_id}) is not supported. \
+                             The saturate and round_mode attributes are float8-specific \
+                             and are therefore also unsupported."
+                        ),
+                    });
+                }
+                element_type_from_proto(*type_id as i32)
+                    .map_err(|_| ProcessError::InvalidAttribute {
+                        name: "to".to_string(),
+                        reason: format!("unsupported dtype: {}", type_id),
+                    })?
+            }
             Some(_) => {
                 return Err(ProcessError::InvalidAttribute {
                     name: "to".to_string(),
@@ -388,5 +406,61 @@ mod tests {
 
         // F32 -> I64 is not a no-op
         assert!(!processor.is_noop(&node));
+    }
+
+    #[test]
+    fn test_cast_float8e4m3fn_rejected() {
+        // FLOAT8E4M3FN - should return a clear unsupported error
+        let node = create_test_node(2, FLOAT8E4M3FN);
+        let processor = CastProcessor;
+        let result = processor.extract_config(&node, 19);
+        assert!(
+            matches!(
+                result,
+                Err(ProcessError::InvalidAttribute { ref name, .. }) if name == "to"
+            ),
+            "Expected InvalidAttribute error for Float8 type, got: {:?}",
+            result
+        );
+        // Verify the error message mentions Float8
+        if let Err(ProcessError::InvalidAttribute { ref reason, .. }) = result {
+            assert!(
+                reason.contains("Float8"),
+                "Error reason should mention Float8: {}",
+                reason
+            );
+        }
+    }
+
+    #[test]
+    fn test_cast_float8e5m2fnuz_rejected() {
+        // FLOAT8E5M2FNUZ - should return a clear unsupported error
+        let node = create_test_node(2, FLOAT8E5M2FNUZ);
+        let processor = CastProcessor;
+        let result = processor.extract_config(&node, 19);
+        assert!(
+            matches!(
+                result,
+                Err(ProcessError::InvalidAttribute { ref name, .. }) if name == "to"
+            ),
+            "Expected InvalidAttribute error for Float8 type, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_cast_float8e8m0_rejected() {
+        // FLOAT8E8M0 (opset 21+, round_mode attribute) - should return a clear unsupported error
+        let node = create_test_node(2, FLOAT8E8M0);
+        let processor = CastProcessor;
+        let result = processor.extract_config(&node, 21);
+        assert!(
+            matches!(
+                result,
+                Err(ProcessError::InvalidAttribute { ref name, .. }) if name == "to"
+            ),
+            "Expected InvalidAttribute error for Float8E8M0 type, got: {:?}",
+            result
+        );
     }
 }
