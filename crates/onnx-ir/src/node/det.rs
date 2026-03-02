@@ -14,8 +14,19 @@
 //!
 //! ## Implementation Notes
 //!
-//! Currently only 2D (non-batched) square matrix inputs are supported. Batched inputs
-//! require a native `det()` function in Burn (tracked as a separate issue in the Burn repo).
+//! The determinant is computed using PLU decomposition:
+//! `det(A) = sign(P) * det(L) * det(U) = sign(P) * product_of_diagonal(U)`
+//! since `det(L) = 1` (L has ones on its diagonal).
+//!
+//! The sign of the permutation is computed by counting inversions in the permutation vector.
+//! An inversion is a pair `(i, j)` where `i < j` but `p[i] > p[j]`.
+//!
+//! Both 2D (non-batched) and batched inputs (`[*, M, M]`) are supported. For batched inputs
+//! the determinant is computed per-matrix using a loop over batch dimensions.
+//!
+//! **Limitation**: Singular matrices (det = 0) cause a panic from `lu_decomposition`
+//! since partial pivoting encounters a zero pivot. A native `det()` function in Burn
+//! would handle this case correctly (tracked as a separate issue in the Burn repo).
 
 use onnx_ir_derive::NodeBuilder;
 
