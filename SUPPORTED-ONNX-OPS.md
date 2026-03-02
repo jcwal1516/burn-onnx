@@ -33,7 +33,7 @@ functionality.
 | [BitwiseXor][20]                 | ✅             | ✅           |
 | [BlackmanWindow][21]             | ❌             | ❌           |
 | [Cast][22]                       | ✅             | ✅           |
-| [CastLike][23]                   | ❌             | ❌           |
+| [CastLike][23]                   | ✅             | ✅           |
 | [Ceil][24]                       | ✅             | ✅           |
 | [Celu][25]                       | ✅             | ✅           |
 | [CenterCropPad][26]              | ❌             | ❌           |
