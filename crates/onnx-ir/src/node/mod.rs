@@ -79,6 +79,7 @@ pub mod conv_transpose3d;
 pub mod cumsum;
 pub mod deform_conv;
 pub mod depth_to_space;
+pub mod det;
 pub mod dequantize_linear;
 pub mod dropout;
 pub mod expand;

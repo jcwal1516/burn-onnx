@@ -225,6 +225,9 @@ impl_node_codegen_dispatch! {
     Resize,
     GridSample,
 
+    // Linear algebra ops
+    Det,
+
     // Test ops
     IsInf,
     IsNaN,

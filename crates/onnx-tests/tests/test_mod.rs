@@ -47,6 +47,7 @@ pub mod cosh;
 pub mod cumsum;
 pub mod deform_conv;
 pub mod depth_to_space;
+pub mod det;
 pub mod dequantize_linear;
 pub mod div;
 pub mod dropout;

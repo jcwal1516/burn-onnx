@@ -355,7 +355,7 @@ define_node_enum! {
     Dft => unsupported::DftNode,
     DeformConv => deform_conv::DeformConvNode,
     DequantizeLinear => dequantize_linear::DequantizeLinearNode,
-    Det => unsupported::DetNode,
+    Det => det::DetNode,
     DynamicQuantizeLinear => unsupported::DynamicQuantizeLinearNode,
     Einsum => unsupported::EinsumNode,
     GridSample => grid_sample::GridSampleNode,
