@@ -19,17 +19,19 @@ mod tests {
         let float_input =
             Tensor::<TestBackend, 2>::from_floats([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], &device);
         // int_target: same shape, used only for dtype (i64)
-        let int_target =
-            Tensor::<TestBackend, 2, Int>::from_ints([[0, 0, 0], [0, 0, 0]], &device);
+        let int_target = Tensor::<TestBackend, 2, Int>::from_ints([[0, 0, 0], [0, 0, 0]], &device);
         // int_input: [1, 2, 3, 4, 5, 6] shape [2, 3]
-        let int_input =
-            Tensor::<TestBackend, 2, Int>::from_ints([[1, 2, 3], [4, 5, 6]], &device);
+        let int_input = Tensor::<TestBackend, 2, Int>::from_ints([[1, 2, 3], [4, 5, 6]], &device);
         // float_target: same shape, used only for dtype (f32)
         let float_target =
             Tensor::<TestBackend, 2>::from_floats([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], &device);
 
-        let (float_to_int, int_to_float) =
-            model.forward(float_input.clone(), int_target, int_input.clone(), float_target);
+        let (float_to_int, int_to_float) = model.forward(
+            float_input.clone(),
+            int_target,
+            int_input.clone(),
+            float_target,
+        );
 
         // float -> int: values should be truncated integers
         let expected_int = TensorData::from([[1i64, 2i64, 3i64], [4i64, 5i64, 6i64]]);

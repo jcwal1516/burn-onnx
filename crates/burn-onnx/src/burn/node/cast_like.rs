@@ -165,14 +165,11 @@ impl NodeCodegen for onnx_ir::cast_like::CastLikeNode {
         let input_arg = self.inputs.first().unwrap();
         let output_arg = self.outputs.first().unwrap();
 
-        match (&input_arg.ty, &output_arg.ty) {
-            (ArgType::Shape(_), ArgType::Tensor(_)) => {
-                imports.register("burn::tensor::TensorData");
-                if self.config.to.is_bool() {
-                    imports.register("burn::tensor::Bool");
-                }
+        if let (ArgType::Shape(_), ArgType::Tensor(_)) = (&input_arg.ty, &output_arg.ty) {
+            imports.register("burn::tensor::TensorData");
+            if self.config.to.is_bool() {
+                imports.register("burn::tensor::Bool");
             }
-            _ => {}
         }
     }
 }
