@@ -186,7 +186,7 @@ mod tests {
         input_dtype: DType,
         output_dtype: DType,
     ) -> CastLikeNode {
-        let config = CastLikeConfig::new(output_dtype, None);
+        let config = CastLikeConfig::new(output_dtype, None, None);
         CastLikeNodeBuilder::new(name)
             .input_tensor("input", 2, input_dtype)
             .output_tensor("output", 2, output_dtype)
@@ -199,7 +199,7 @@ mod tests {
         input_dtype: DType,
         output_dtype: DType,
     ) -> CastLikeNode {
-        let config = CastLikeConfig::new(output_dtype, None);
+        let config = CastLikeConfig::new(output_dtype, None, None);
         CastLikeNodeBuilder::new(name)
             .input_scalar("input", input_dtype)
             .output_scalar("output", output_dtype)
@@ -286,6 +286,92 @@ mod tests {
         assert_snapshot!(code, @r"
         pub fn forward(&self, input: Tensor<B, 2, Int>) -> Tensor<B, 2, Int> {
             let output = input.cast(burn::tensor::DType::I32);
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_cast_like_scalar_noop() {
+        let node = create_cast_like_node_scalar("cast_like1", DType::F32, DType::F32);
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, input: f32) -> f32 {
+            let output = input;
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_cast_like_shape_to_shape() {
+        let config = CastLikeConfig::new(DType::I64, None, None);
+        let node = CastLikeNodeBuilder::new("cast_like1")
+            .input_shape("input", 3)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, input: [i64; 3]) -> [i64; 3] {
+            let output = input;
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_cast_like_shape_to_float_tensor() {
+        let config = CastLikeConfig::new(DType::F32, None, None);
+        let node = CastLikeNodeBuilder::new("cast_like1")
+            .input_shape("input", 3)
+            .output_tensor("output", 1, DType::F32)
+            .config(config)
+            .build();
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, input: [i64; 3]) -> Tensor<B, 1> {
+            let output = {
+                let shape_array = input as [i64; 3usize];
+                let float_array: [f64; 3usize] = shape_array.map(|x| x as f64);
+                Tensor::<
+                    B,
+                    1,
+                >::from_data_dtype(
+                    TensorData::from(float_array),
+                    &self.device,
+                    burn::tensor::DType::F32,
+                )
+            };
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_cast_like_shape_to_bool_tensor() {
+        let config = CastLikeConfig::new(DType::Bool, None, None);
+        let node = CastLikeNodeBuilder::new("cast_like1")
+            .input_shape("input", 3)
+            .output_tensor("output", 1, DType::Bool)
+            .config(config)
+            .build();
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, input: [i64; 3]) -> Tensor<B, 1, Bool> {
+            let output = {
+                let shape_array = input as [i64; 3usize];
+                let bool_array: [bool; 3usize] = shape_array.map(|x| x != 0);
+                Tensor::<
+                    B,
+                    1,
+                    Bool,
+                >::from_data_dtype(
+                    TensorData::from(bool_array),
+                    &self.device,
+                    burn::tensor::DType::Bool,
+                )
+            };
             output
         }
         ");

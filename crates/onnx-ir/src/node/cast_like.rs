@@ -24,6 +24,8 @@ pub struct CastLikeConfig {
     /// The parameter defines how the conversion behaves if an input value is out of
     /// range of the destination type (opset 19+, for float8 conversions only)
     pub saturate: Option<i64>,
+    /// Rounding mode for conversion to float8e8m0 (opset 21+)
+    pub round_mode: Option<String>,
 }
 
 /// Node representation for CastLike operation
@@ -125,7 +127,16 @@ impl NodeProcessor for CastLikeProcessor {
             }
         });
 
-        Ok(CastLikeConfig::new(elem_type, saturate))
+        // Extract optional 'round_mode' attribute (opset 21+, for float8e8m0 conversions)
+        let round_mode = node.attrs.get("round_mode").and_then(|v| {
+            if let AttributeValue::String(s) = v {
+                Some(s.clone())
+            } else {
+                None
+            }
+        });
+
+        Ok(CastLikeConfig::new(elem_type, saturate, round_mode))
     }
 
     fn build_node(&self, mut builder: RawNode, opset: usize) -> Node {
@@ -308,7 +319,7 @@ mod tests {
 
     #[test]
     fn test_cast_like_with_saturate_attribute() {
-        let mut node = TestNodeBuilder::new(NodeType::CastLike, "test_cast_like")
+        let node = TestNodeBuilder::new(NodeType::CastLike, "test_cast_like")
             .input_tensor_f32("input", 2, None)
             .input_tensor_i64("target_type", 2, None)
             .output_tensor_f32("output", 2, None)
@@ -319,5 +330,21 @@ mod tests {
         let config = processor.extract_config(&node, 19).unwrap();
         assert_eq!(config.to, DType::I64);
         assert_eq!(config.saturate, Some(1));
+        assert_eq!(config.round_mode, None);
+    }
+
+    #[test]
+    fn test_cast_like_with_round_mode_attribute() {
+        let node = TestNodeBuilder::new(NodeType::CastLike, "test_cast_like")
+            .input_tensor_f32("input", 2, None)
+            .input_tensor_i64("target_type", 2, None)
+            .output_tensor_f32("output", 2, None)
+            .attr_string("round_mode", "nearest")
+            .build();
+
+        let processor = CastLikeProcessor;
+        let config = processor.extract_config(&node, 21).unwrap();
+        assert_eq!(config.to, DType::I64);
+        assert_eq!(config.round_mode, Some("nearest".to_string()));
     }
 }

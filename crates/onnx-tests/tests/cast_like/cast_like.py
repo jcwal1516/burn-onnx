@@ -51,6 +51,26 @@ def main():
     onnx.save(model, "cast_like.onnx")
     print("Finished exporting model to cast_like.onnx")
 
+    # Verify with ReferenceEvaluator
+    from onnx.reference import ReferenceEvaluator
+
+    np.random.seed(42)
+    float_data = np.array([[1.0, 2.5, 3.7], [4.1, 5.9, 6.0]], dtype=np.float32)
+    int_target_data = np.zeros((2, 3), dtype=np.int64)
+    int_data = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64)
+    float_target_data = np.zeros((2, 3), dtype=np.float32)
+
+    sess = ReferenceEvaluator(model)
+    results = sess.run(None, {
+        "float_input": float_data,
+        "int_target": int_target_data,
+        "int_input": int_data,
+        "float_target": float_target_data,
+    })
+
+    print(f"float_to_int: {results[0]} dtype={results[0].dtype}")
+    print(f"int_to_float: {results[1]} dtype={results[1].dtype}")
+
 
 if __name__ == "__main__":
     main()
