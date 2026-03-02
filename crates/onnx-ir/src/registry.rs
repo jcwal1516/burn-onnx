@@ -496,6 +496,10 @@ impl ProcessorRegistry {
         // Special operations
         registry.register(NodeType::Cast, Box::new(crate::node::cast::CastProcessor));
         registry.register(
+            NodeType::CastLike,
+            Box::new(crate::node::cast_like::CastLikeProcessor),
+        );
+        registry.register(
             NodeType::Shape,
             Box::new(crate::node::shape::ShapeProcessor),
         );
