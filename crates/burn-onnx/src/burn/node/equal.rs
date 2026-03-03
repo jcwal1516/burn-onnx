@@ -22,18 +22,11 @@ impl NodeCodegen for onnx_ir::comparison::EqualNode {
             (lhs_ty, rhs_ty) if lhs_ty.is_on_device() && rhs_ty.is_on_device() => {
                 let lhs_rank = lhs_ty.rank();
                 let rhs_rank = rhs_ty.rank();
-
-                if lhs_rank == rhs_rank {
-                    quote! { #lhs_value.equal(#rhs_value) }
-                } else if lhs_rank > rhs_rank {
-                    let num_dims = lhs_rank - rhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs_value.equal(#rhs_value.unsqueeze_dims(&[#(#dims),*])) }
-                } else {
-                    let num_dims = rhs_rank - lhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs_value.unsqueeze_dims(&[#(#dims),*]).equal(#rhs_value) }
-                }
+                let lhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #lhs_value }, lhs_rank, rhs_rank);
+                let rhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #rhs_value }, rhs_rank, lhs_rank);
+                quote! { #lhs_bc.equal(#rhs_bc) }
             }
             (lhs_ty, ArgType::ScalarNative(_)) if lhs_ty.is_on_device() => {
                 quote! { #lhs_value.equal_elem(#rhs_value) }
@@ -123,7 +116,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 3>, rhs: Tensor<B, 2>) -> Tensor<B, 3, Bool> {
-            let output = lhs.equal(rhs.unsqueeze_dims(&[0isize]));
+            let output = lhs.equal((rhs).unsqueeze_dims(&[0isize]));
             output
         }
         ");
@@ -138,7 +131,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 2>, rhs: Tensor<B, 3>) -> Tensor<B, 3, Bool> {
-            let output = lhs.unsqueeze_dims(&[0isize]).equal(rhs);
+            let output = (lhs).unsqueeze_dims(&[0isize]).equal(rhs);
             output
         }
         ");
@@ -153,7 +146,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 3>, rhs: Tensor<B, 1>) -> Tensor<B, 3, Bool> {
-            let output = lhs.equal(rhs.unsqueeze_dims(&[0isize, 1isize]));
+            let output = lhs.equal((rhs).unsqueeze_dims(&[0isize, 1isize]));
             output
         }
         ");
@@ -168,7 +161,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 1>, rhs: Tensor<B, 3>) -> Tensor<B, 3, Bool> {
-            let output = lhs.unsqueeze_dims(&[0isize, 1isize]).equal(rhs);
+            let output = (lhs).unsqueeze_dims(&[0isize, 1isize]).equal(rhs);
             output
         }
         ");

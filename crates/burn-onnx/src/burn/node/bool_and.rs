@@ -22,18 +22,11 @@ impl NodeCodegen for onnx_ir::node::and::AndNode {
             (lhs_ty, rhs_ty) if lhs_ty.is_on_device() && rhs_ty.is_on_device() => {
                 let lhs_rank = lhs_ty.rank();
                 let rhs_rank = rhs_ty.rank();
-
-                if lhs_rank == rhs_rank {
-                    quote! { #lhs_value.bool_and(#rhs_value) }
-                } else if lhs_rank > rhs_rank {
-                    let num_dims = lhs_rank - rhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs_value.bool_and(#rhs_value.unsqueeze_dims(&[#(#dims),*])) }
-                } else {
-                    let num_dims = rhs_rank - lhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs_value.unsqueeze_dims(&[#(#dims),*]).bool_and(#rhs_value) }
-                }
+                let lhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #lhs_value }, lhs_rank, rhs_rank);
+                let rhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #rhs_value }, rhs_rank, lhs_rank);
+                quote! { #lhs_bc.bool_and(#rhs_bc) }
             }
             (ArgType::ScalarNative(_), rhs_ty) if rhs_ty.is_on_device() => {
                 let rank = rhs_ty.rank();

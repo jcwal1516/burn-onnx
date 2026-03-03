@@ -4,8 +4,7 @@
 // Prelude module with common imports for node implementations
 pub(crate) mod prelude;
 
-// Shared helpers for subgraph code generation (If, Loop, Scan)
-mod broadcast_helpers;
+pub(crate) mod broadcast_helpers;
 mod subgraph_helper;
 
 // Test helpers for node code generation tests
