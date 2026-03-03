@@ -22,18 +22,11 @@ impl NodeCodegen for onnx_ir::node::bitwisexor::BitwiseXorNode {
             (lhs_ty, rhs_ty) if lhs_ty.is_on_device() && rhs_ty.is_on_device() => {
                 let lhs_rank = lhs_ty.rank();
                 let rhs_rank = rhs_ty.rank();
-
-                if lhs_rank == rhs_rank {
-                    quote! { #lhs_value.bitwise_xor(#rhs_value) }
-                } else if lhs_rank > rhs_rank {
-                    let num_dims = lhs_rank - rhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs_value.bitwise_xor(#rhs_value.unsqueeze_dims(&[#(#dims),*])) }
-                } else {
-                    let num_dims = rhs_rank - lhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs_value.unsqueeze_dims(&[#(#dims),*]).bitwise_xor(#rhs_value) }
-                }
+                let lhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #lhs_value }, lhs_rank, rhs_rank);
+                let rhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #rhs_value }, rhs_rank, lhs_rank);
+                quote! { #lhs_bc.bitwise_xor(#rhs_bc) }
             }
             (lhs_ty, ArgType::ScalarNative(_)) if lhs_ty.is_on_device() => {
                 quote! { #lhs_value.bitwise_xor_scalar((#rhs_value as i64).elem()) }
@@ -142,7 +135,7 @@ mod tests {
             lhs: Tensor<B, 3, Int>,
             rhs: Tensor<B, 2, Int>,
         ) -> Tensor<B, 3, Int> {
-            let output = lhs.bitwise_xor(rhs.unsqueeze_dims(&[0isize]));
+            let output = lhs.bitwise_xor((rhs).unsqueeze_dims(&[0isize]));
             output
         }
         ");
@@ -162,7 +155,7 @@ mod tests {
             lhs: Tensor<B, 2, Int>,
             rhs: Tensor<B, 3, Int>,
         ) -> Tensor<B, 3, Int> {
-            let output = lhs.unsqueeze_dims(&[0isize]).bitwise_xor(rhs);
+            let output = (lhs).unsqueeze_dims(&[0isize]).bitwise_xor(rhs);
             output
         }
         ");
