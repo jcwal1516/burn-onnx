@@ -6,7 +6,7 @@ use std::{
     path::Path,
 };
 
-use burn_onnx::ModelGen;
+use burn_onnx::{LoadStrategy, ModelGen};
 
 const LABEL_SOURCE_FILE: &str = "src/model/label.txt";
 const LABEL_DEST_FILE: &str = "model/label.rs";
@@ -22,7 +22,7 @@ fn main() {
     ModelGen::new()
         .input(INPUT_ONNX_FILE)
         .out_dir(OUT_DIR)
-        .embed_states(true)
+        .load_strategy(LoadStrategy::Embedded)
         .run_from_script();
 
     // Generate the labels from the synset.txt file.

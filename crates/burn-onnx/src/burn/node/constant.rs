@@ -151,7 +151,7 @@ impl NodeCodegen for onnx_ir::node::constant::ConstantNode {
 
         // Collect snapshots for tensor and ScalarTensor constants.
         // ScalarTensor values are also embedded in the field initializer for Model::new(),
-        // but burnpack needs them too for Model::from_file() / from_embedded().
+        // but burnpack needs them too for Model::from_file() / from_bytes() / from_embedded().
         match &output.ty {
             ArgType::Tensor(_) | ArgType::ScalarTensor(_) => {
                 if let Some(input) = self.inputs.first() {

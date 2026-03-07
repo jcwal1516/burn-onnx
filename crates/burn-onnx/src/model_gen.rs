@@ -8,6 +8,29 @@ use crate::{burn::graph::BurnGraph, format_tokens, logger::init_log};
 
 use onnx_ir::{OnnxGraphBuilder, ir::OnnxGraph};
 
+/// Controls how model weights are loaded at runtime.
+///
+/// This determines which constructors are generated on the `Model` struct.
+/// `from_bytes()` is generated for all variants except `None`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LoadStrategy {
+    /// Keep weights in a separate `.bpk` file. Generates `from_file()`, `from_bytes()`,
+    /// and a `Default` impl that calls `from_file()`.
+    #[default]
+    File,
+
+    /// Embed weights in the binary via `include_bytes!`. Generates `from_embedded()`,
+    /// `from_bytes()`, and a `Default` impl that calls `from_embedded()`.
+    Embedded,
+
+    /// No built-in file or embedded loading. Generates only `from_bytes()`.
+    /// The caller must provide weight bytes at runtime.
+    Bytes,
+
+    /// No weight-loading constructors at all.
+    None,
+}
+
 /// Builder for generating Burn model code from ONNX files.
 ///
 /// `ModelGen` converts ONNX models into Burn-compatible Rust source code and model weights.
@@ -67,7 +90,7 @@ pub struct ModelGen {
     /// List of onnx files to generate source code from.
     inputs: Vec<PathBuf>,
     development: bool,
-    embed_states: bool,
+    load_strategy: LoadStrategy,
     /// Whether to run graph simplification passes (default: true)
     simplify: bool,
     /// Whether to partition large models into submodules (default: true)
@@ -80,7 +103,7 @@ impl Default for ModelGen {
             out_dir: None,
             inputs: Vec::new(),
             development: false,
-            embed_states: false,
+            load_strategy: LoadStrategy::default(),
             simplify: true,
             partition: true,
         }
@@ -92,7 +115,7 @@ impl ModelGen {
     ///
     /// Default configuration:
     /// - Development mode: off
-    /// - Embed states: off
+    /// - Load strategy: [`LoadStrategy::File`]
     ///
     /// # Examples
     ///
@@ -185,32 +208,24 @@ impl ModelGen {
         self
     }
 
-    /// Embeds model weights directly in the generated Rust code.
+    /// Sets the weight loading strategy for the generated model.
     ///
-    /// When enabled, the `.burnpack` file is included in the binary using `include_bytes!`.
-    /// This is useful for WebAssembly targets or when you want a single binary without
-    /// external weight files.
-    ///
-    /// **Note**: This increases binary size significantly for large models and may
-    /// increase memory usage at runtime. Only recommended for small models.
-    ///
-    /// # Arguments
-    ///
-    /// * `embed_states` - If `true`, embed weights in the binary
+    /// See [`LoadStrategy`] for available options.
     ///
     /// # Examples
     ///
     /// ```no_run
-    /// use burn_onnx::ModelGen;
+    /// use burn_onnx::{ModelGen, LoadStrategy};
     ///
+    /// // WASM or embedded: load weights from bytes at runtime
     /// ModelGen::new()
-    ///     .input("small_model.onnx")
+    ///     .input("model.onnx")
     ///     .out_dir("model/")
-    ///     .embed_states(true)  // Embed weights in binary
+    ///     .load_strategy(LoadStrategy::Bytes)
     ///     .run_from_script();
     /// ```
-    pub fn embed_states(&mut self, embed_states: bool) -> &mut Self {
-        self.embed_states = embed_states;
+    pub fn load_strategy(&mut self, strategy: LoadStrategy) -> &mut Self {
+        self.load_strategy = strategy;
         self
     }
 
@@ -369,7 +384,7 @@ impl ModelGen {
         let bpk_file = out_file.with_extension("bpk");
         graph
             .into_burn()
-            .with_burnpack(bpk_file, self.embed_states)
+            .with_burnpack(bpk_file, self.load_strategy)
             .with_blank_space(true)
             .with_top_comment(top_comment)
             .with_partition(self.partition)
