@@ -52,7 +52,6 @@ define_placeholder_node! {
     ConvTransposeNode,
     DftNode,
     DequantizeLinearNode,
-    DetNode,
     DynamicQuantizeLinearNode,
     EinsumNode,
     GlobalMaxPoolNode,

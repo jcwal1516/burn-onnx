@@ -160,6 +160,8 @@ fn add_all_inputs(model_gen: &mut ModelGen) {
         .input("tests/dequantize_linear/dequantize_linear_axis.onnx")
         .input("tests/depth_to_space/depth_to_space_dcr.onnx")
         .input("tests/depth_to_space/depth_to_space_crd.onnx")
+        .input("tests/det/det.onnx")
+        .input("tests/det/det_batched.onnx")
         .input("tests/col2im/col2im_basic.onnx")
         .input("tests/col2im/col2im_complex.onnx")
         .input("tests/div/div.onnx")
