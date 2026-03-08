@@ -14,7 +14,7 @@
 //!
 //! ## Implementation Notes
 //!
-//! The determinant is computed using PLU decomposition:
+//! The determinant is computed using LU decomposition with partial pivoting (PA = LU):
 //! `det(A) = sign(P) * det(L) * det(U) = sign(P) * product_of_diagonal(U)`
 //! since `det(L) = 1` (L has ones on its diagonal).
 //!
@@ -24,9 +24,9 @@
 //! Both 2D (non-batched) and batched inputs (`[*, M, M]`) are supported. For batched inputs
 //! the determinant is computed per-matrix using a loop over batch dimensions.
 //!
-//! **Limitation**: Singular matrices (det = 0) cause a panic from `lu_decomposition`
-//! since partial pivoting encounters a zero pivot. A native `det()` function in Burn
-//! would handle this case correctly (tracked as a separate issue in the Burn repo).
+//! **Limitation**: Singular or near-singular matrices cause a panic from `lu_decomposition`
+//! when partial pivoting encounters a pivot with magnitude <= 1e-6. A native `det()` function
+//! in Burn would handle this case correctly (tracked as a separate issue in the Burn repo).
 
 use onnx_ir_derive::NodeBuilder;
 
@@ -66,7 +66,7 @@ impl NodeProcessor for DetProcessor {
     ) -> Result<(), ProcessError> {
         validate_opset(opset, 11)?;
 
-        let (rank, dtype) = match &node.inputs[0].ty {
+        let (rank, dtype, static_shape) = match &node.inputs[0].ty {
             ArgType::Tensor(tensor) => {
                 if tensor.rank < 2 {
                     return Err(ProcessError::Custom(format!(
@@ -74,7 +74,18 @@ impl NodeProcessor for DetProcessor {
                         tensor.rank
                     )));
                 }
-                (tensor.rank, tensor.dtype)
+                // Validate square matrix when static shape is available
+                if let Some(shape) = &tensor.static_shape {
+                    let n = shape.len();
+                    if let (Some(rows), Some(cols)) = (shape[n - 2], shape[n - 1])
+                        && rows != cols
+                    {
+                        return Err(ProcessError::Custom(format!(
+                            "Det: input must be a square matrix, but last two dimensions are [{rows}, {cols}]"
+                        )));
+                    }
+                }
+                (tensor.rank, tensor.dtype, tensor.static_shape.clone())
             }
             _ => {
                 return Err(ProcessError::TypeMismatch {
@@ -84,15 +95,18 @@ impl NodeProcessor for DetProcessor {
             }
         };
 
-        // Output rank is input rank minus 2 (the last two dims are the matrix dims)
         if rank == 2 {
-            // 2D input → scalar output
             node.outputs[0].ty = ArgType::ScalarTensor(dtype);
         } else {
+            let out_rank = rank - 2;
             node.outputs[0].ty = ArgType::Tensor(TensorType {
                 dtype,
-                rank: rank - 2,
-                static_shape: None,
+                rank: out_rank,
+                static_shape: Some(
+                    static_shape
+                        .map(|s| s[..s.len() - 2].to_vec())
+                        .unwrap_or_else(|| vec![None; out_rank]),
+                ),
             });
         }
 
@@ -126,7 +140,10 @@ mod tests {
         let prefs = OutputPreferences::new();
         processor.infer_types(&mut node, 11, &prefs).unwrap();
 
-        assert!(matches!(node.outputs[0].ty, ArgType::ScalarTensor(DType::F32)));
+        assert!(matches!(
+            node.outputs[0].ty,
+            ArgType::ScalarTensor(DType::F32)
+        ));
     }
 
     #[test]
@@ -150,6 +167,50 @@ mod tests {
     }
 
     #[test]
+    fn test_det_4d_infer_types() {
+        let mut node = TestNodeBuilder::new(NodeType::Det, "test_det")
+            .input_tensor_f32("X", 4, None)
+            .output_tensor_f32("Y", 0, None)
+            .build();
+
+        let processor = DetProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 11, &prefs).unwrap();
+
+        match &node.outputs[0].ty {
+            ArgType::Tensor(t) => {
+                assert_eq!(t.rank, 2);
+                assert_eq!(t.dtype, DType::F32);
+            }
+            _ => panic!("Expected Tensor output for 4D input"),
+        }
+    }
+
+    #[test]
+    fn test_det_f64_preserves_dtype() {
+        let mut node = TestNodeBuilder::new(NodeType::Det, "test_det")
+            .add_input(
+                "X",
+                ArgType::Tensor(TensorType {
+                    dtype: DType::F64,
+                    rank: 2,
+                    static_shape: None,
+                }),
+            )
+            .output_tensor_f32("Y", 0, None)
+            .build();
+
+        let processor = DetProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 11, &prefs).unwrap();
+
+        assert!(matches!(
+            node.outputs[0].ty,
+            ArgType::ScalarTensor(DType::F64)
+        ));
+    }
+
+    #[test]
     fn test_det_rank_too_low() {
         let mut node = TestNodeBuilder::new(NodeType::Det, "test_det")
             .input_tensor_f32("X", 1, None)
@@ -160,5 +221,43 @@ mod tests {
         let prefs = OutputPreferences::new();
         let result = processor.infer_types(&mut node, 11, &prefs);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_det_non_square_rejected() {
+        let mut node = TestNodeBuilder::new(NodeType::Det, "test_det")
+            .input_tensor_f32("X", 2, Some(vec![3, 4]))
+            .output_tensor_f32("Y", 0, None)
+            .build();
+
+        let processor = DetProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 11, &prefs);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("square matrix"),
+            "Error should mention square matrix: {err}"
+        );
+    }
+
+    #[test]
+    fn test_det_static_shape_propagated() {
+        let mut node = TestNodeBuilder::new(NodeType::Det, "test_det")
+            .input_tensor_f32("X", 3, Some(vec![2, 3, 3]))
+            .output_tensor_f32("Y", 0, None)
+            .build();
+
+        let processor = DetProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 11, &prefs).unwrap();
+
+        match &node.outputs[0].ty {
+            ArgType::Tensor(t) => {
+                assert_eq!(t.rank, 1);
+                assert_eq!(t.static_shape, Some(vec![Some(2)]));
+            }
+            _ => panic!("Expected Tensor output for 3D input"),
+        }
     }
 }
