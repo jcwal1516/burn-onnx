@@ -1,4 +1,5 @@
 use super::prelude::*;
+use burn::tensor::Shape;
 use burn_store::TensorSnapshot;
 use onnx_ir::ir::ArgType;
 
@@ -46,7 +47,7 @@ impl NodeCodegen for onnx_ir::prelu::PReluNode {
             let alpha_path = format!("{}.alpha", field_name);
             if let Some(mut snapshot) = create_lazy_snapshot(alpha_input, &alpha_path, "PRelu") {
                 // Squeeze dimensions to 1D
-                snapshot.shape = vec![num_parameters(self)];
+                snapshot.shape = Shape::from([num_parameters(self)]);
                 snapshots.push(snapshot);
             }
         }

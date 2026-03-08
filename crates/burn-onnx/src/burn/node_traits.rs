@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use alloc::rc::Rc;
+use burn::tensor::Shape;
 use burn_store::{TensorSnapshot, TensorSnapshotError};
 use proc_macro2::{Ident, Span, TokenStream};
 
@@ -205,10 +206,10 @@ pub fn create_lazy_snapshot(
     let (dtype, shape, is_scalar) = match &input.ty {
         ArgType::Tensor(tensor_type) => {
             let dtype = tensor_type.dtype;
-            let shape = tensor_type.static_shape_known().unwrap_or_default();
+            let shape: Shape = tensor_type.static_shape_known().unwrap_or_default().into();
             (dtype, shape, false)
         }
-        ArgType::ScalarTensor(d) | ArgType::ScalarNative(d) => (*d, vec![1], true),
+        ArgType::ScalarTensor(d) | ArgType::ScalarNative(d) => (*d, Shape::from([1]), true),
         _ => return None,
     };
 
@@ -225,7 +226,7 @@ pub fn create_lazy_snapshot(
         })?;
         // Scalar data has shape [], but Param<Tensor<B, 1>> expects shape [1]
         if is_scalar && data.shape.is_empty() {
-            data.shape = vec![1];
+            data.shape = Shape::from([1]);
         }
         Ok(data)
     });

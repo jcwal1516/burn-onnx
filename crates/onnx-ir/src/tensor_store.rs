@@ -206,7 +206,7 @@ impl From<TensorData> for TensorDataRef {
         // burn_tensor::Bytes implements Deref<[u8]>, so we can copy to bytes::Bytes
         let raw_bytes = bytes::Bytes::copy_from_slice(&tensor_data.bytes);
         Self {
-            shape: tensor_data.shape,
+            shape: tensor_data.shape.to_vec(),
             dtype: tensor_data.dtype,
             source: TensorDataSource::Embedded(raw_bytes),
         }

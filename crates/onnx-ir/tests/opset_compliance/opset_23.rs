@@ -67,9 +67,11 @@ fn constant_of_shape(graph: &OnnxGraph) {
                         ],
                         len: 4,
                     },
-                    shape: [
-                        1,
-                    ],
+                    shape: Shape {
+                        dims: [
+                            1,
+                        ],
+                    },
                     dtype: F32,
                 },
             ),
