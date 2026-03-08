@@ -7,10 +7,10 @@
 //! ## Opset Versions
 //! - **Opset 1-5**: Basic cast operation with core numeric types
 //! - **Opset 6-8**: Extended type support for additional numeric types
-//! - **Opset 9-12**: Added float8 types (e4m3fn, e4m3fnuz, e5m2, e5m2fnuz)
+//! - **Opset 9-12**: Added string tensor casting support
 //! - **Opset 13-18**: Added bfloat16 support
-//! - **Opset 19-20**: Added saturate attribute for float8 conversions
-//! - **Opset 21+**: Added round_mode attribute for float8e8m0 conversion
+//! - **Opset 19-20**: Added float8 types (e4m3fn, e4m3fnuz, e5m2, e5m2fnuz) and saturate attribute
+//! - **Opset 21+**: Added float8e8m0 type and round_mode attribute
 //!
 //! ## Special Features
 //! - Supports casting from string tensor in plain (e.g., "3.14", "1000") and scientific notation
@@ -79,9 +79,7 @@ impl NodeProcessor for CastProcessor {
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
         // Get reference to config for type inference
-        let config = self
-            .extract_config(node, opset)
-            .expect("Config extraction failed");
+        let config = self.extract_config(node, opset)?;
         let elem_type = config.to;
 
         // Infer output type based on input type

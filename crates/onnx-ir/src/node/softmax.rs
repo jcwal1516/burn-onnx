@@ -69,10 +69,10 @@ impl NodeProcessor for SoftmaxProcessor {
         };
 
         if rank == 0 {
-            return Err(ProcessError::Custom(
-                "Softmax requires input rank >= 1; rank-0 (scalar) inputs are not supported"
-                    .to_string(),
-            ));
+            return Err(ProcessError::TypeMismatch {
+                expected: "Tensor with rank >= 1".to_string(),
+                actual: "Tensor with rank 0 (scalar)".to_string(),
+            });
         }
 
         // Infer output type
@@ -84,10 +84,16 @@ impl NodeProcessor for SoftmaxProcessor {
     fn extract_config(&self, node: &RawNode, opset: usize) -> Result<Self::Config, ProcessError> {
         // Extract the shape of the input tensor
         let tensor = match &node.inputs.first().unwrap().ty {
-            ArgType::Tensor(tensor) => tensor.clone(),
+            ArgType::Tensor(tensor) if tensor.rank > 0 => tensor.clone(),
+            ArgType::Tensor(tensor) => {
+                return Err(ProcessError::TypeMismatch {
+                    expected: "Tensor with rank >= 1".to_string(),
+                    actual: format!("Tensor with rank {}", tensor.rank),
+                });
+            }
             _ => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor".to_string(),
+                    expected: "Tensor with rank >= 1".to_string(),
                     actual: format!("{:?}", node.inputs.first().unwrap().ty),
                 });
             }
@@ -202,15 +208,28 @@ mod tests {
     }
 
     #[test]
-    fn test_softmax_rank_zero_rejected() {
-        // Rank-0 (scalar) input should be rejected - axis is not valid for scalars
+    fn test_softmax_rank_zero_rejected_infer_types() {
+        // Rank-0 (scalar) input should be rejected in infer_types
         let mut node = create_test_node(0, 0);
         let processor = SoftmaxProcessor;
         let prefs = OutputPreferences::new();
         let result = processor.infer_types(&mut node, 16, &prefs);
         assert!(
-            matches!(result, Err(ProcessError::Custom(_))),
-            "Expected error for rank-0 input, got: {:?}",
+            matches!(result, Err(ProcessError::TypeMismatch { .. })),
+            "Expected TypeMismatch for rank-0 input, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_softmax_rank_zero_rejected_extract_config() {
+        // Rank-0 (scalar) input should also be rejected in extract_config
+        let node = create_test_node(0, 0);
+        let processor = SoftmaxProcessor;
+        let result = processor.extract_config(&node, 16);
+        assert!(
+            matches!(result, Err(ProcessError::TypeMismatch { .. })),
+            "Expected TypeMismatch for rank-0 input, got: {:?}",
             result
         );
     }
@@ -246,6 +265,12 @@ mod tests {
             result
         );
     }
+
+    // TODO: Missing test for opset 13 behavior change - spec changed from 2D coercion to direct
+    // axis operation. Need test to verify opset < 13 and opset 13+ work correctly.
+
+    // TODO: Missing test for type constraints - Softmax only supports float types.
+    // Need test to verify integer input is rejected (or properly handled).
 
     #[test]
     fn test_softmax_1d_axis_zero() {
