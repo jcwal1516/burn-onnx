@@ -64,6 +64,7 @@ pub mod bitwiseand;
 pub mod bitwiseor;
 pub mod bitwisexor;
 pub mod cast;
+pub mod cast_like;
 pub mod clip;
 pub mod col2im;
 pub mod comparison;

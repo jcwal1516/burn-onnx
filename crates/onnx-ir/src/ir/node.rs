@@ -250,6 +250,7 @@ define_node_enum! {
 
     // TENSOR MANIPULATION
     Cast => cast::CastNode,
+    CastLike => cast_like::CastLikeNode,
     Clip => clip::ClipNode,
     Concat => concat::ConcatNode,
     Expand => expand::ExpandNode,
@@ -344,7 +345,6 @@ define_node_enum! {
     AffineGrid => unsupported::AffineGridNode,
     AveragePool => unsupported::AveragePoolNode,
     BlackmanWindow => unsupported::BlackmanWindowNode,
-    CastLike => unsupported::CastLikeNode,
     CenterCropPad => unsupported::CenterCropPadNode,
     Col2Im => col2im::Col2ImNode,
     Compress => unsupported::CompressNode,

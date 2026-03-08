@@ -1,4 +1,20 @@
-use super::prelude::*;
+use proc_macro2::TokenStream;
+use quote::quote;
+
+/// Prepend leading unsqueeze dimensions to `expr` so its rank matches `target_rank`.
+/// Returns `expr` unchanged when `expr_rank >= target_rank`.
+pub(crate) fn leading_broadcast(
+    expr: TokenStream,
+    expr_rank: usize,
+    target_rank: usize,
+) -> TokenStream {
+    if expr_rank >= target_rank {
+        return expr;
+    }
+    let num_dims = target_rank - expr_rank;
+    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
+    quote! { (#expr).unsqueeze_dims(&[#(#dims),*]) }
+}
 
 pub(crate) fn align_rhs_for_lhs_rank(
     rhs_expr: TokenStream,

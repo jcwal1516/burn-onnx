@@ -21,18 +21,11 @@ impl NodeCodegen for onnx_ir::node::max::MaxNode {
             (lhs_ty, rhs_ty) if lhs_ty.is_on_device() && rhs_ty.is_on_device() => {
                 let lhs_rank = lhs_ty.rank();
                 let rhs_rank = rhs_ty.rank();
-
-                if lhs_rank == rhs_rank {
-                    quote! { #lhs.max_pair(#rhs) }
-                } else if lhs_rank > rhs_rank {
-                    let num_dims = lhs_rank - rhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs.max_pair(#rhs.unsqueeze_dims(&[#(#dims),*])) }
-                } else {
-                    let num_dims = rhs_rank - lhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs.unsqueeze_dims(&[#(#dims),*]).max_pair(#rhs) }
-                }
+                let lhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #lhs }, lhs_rank, rhs_rank);
+                let rhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #rhs }, rhs_rank, lhs_rank);
+                quote! { #lhs_bc.max_pair(#rhs_bc) }
             }
             _ => panic!("max: unsupported input types"),
         };
@@ -76,7 +69,7 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self, a: Tensor<B, 3>, b: Tensor<B, 2>) -> Tensor<B, 3> {
-            let output = a.max_pair(b.unsqueeze_dims(&[0isize]));
+            let output = a.max_pair((b).unsqueeze_dims(&[0isize]));
             output
         }
         ");
@@ -88,7 +81,7 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self, a: Tensor<B, 2>, b: Tensor<B, 3>) -> Tensor<B, 3> {
-            let output = a.unsqueeze_dims(&[0isize]).max_pair(b);
+            let output = (a).unsqueeze_dims(&[0isize]).max_pair(b);
             output
         }
         ");

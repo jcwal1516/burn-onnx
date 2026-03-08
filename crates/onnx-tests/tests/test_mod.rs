@@ -32,6 +32,7 @@ pub mod bitwise_not;
 pub mod bitwise_or;
 pub mod bitwise_xor;
 pub mod cast;
+pub mod cast_like;
 pub mod ceil;
 pub mod celu;
 pub mod clip;

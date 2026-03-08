@@ -198,7 +198,7 @@ mod tests {
     #[test]
     fn test_constant_scalar_float() {
         let mut node =
-            create_test_node_with_data(crate::ir::TensorData::new(vec![6.14f32], vec![]));
+            create_test_node_with_data(crate::ir::TensorData::new(vec![6.14f32], [0usize; 0]));
 
         let processor = ConstantProcessor;
         let prefs = OutputPreferences::new();
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn test_constant_scalar_to_native_with_preferences() {
         let mut node = create_test_node_with_data(
-            crate::ir::TensorData::new(vec![42.0f32], vec![]), // scalar
+            crate::ir::TensorData::new(vec![42.0f32], [0usize; 0]), // scalar
         );
 
         // Create preferences requesting ScalarNative (e.g., for shape ops)

@@ -177,6 +177,7 @@ impl_node_codegen_dispatch! {
 
     // Other ops
     Cast,
+    CastLike,
     Clip,
     CumSum,
     Dropout,

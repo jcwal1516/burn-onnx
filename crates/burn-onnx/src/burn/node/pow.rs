@@ -51,34 +51,22 @@ impl NodeCodegen for onnx_ir::pow::PowNode {
             (PowerType::Int, lhs_ty, rhs_ty) if lhs_ty.is_on_device() && rhs_ty.is_on_device() => {
                 let lhs_rank = lhs_ty.rank();
                 let rhs_rank = rhs_ty.rank();
-                if lhs_rank == rhs_rank {
-                    quote! { #lhs.powi(#rhs) }
-                } else if lhs_rank > rhs_rank {
-                    let num_dims = lhs_rank - rhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs.powi(#rhs.unsqueeze_dims(&[#(#dims),*])) }
-                } else {
-                    let num_dims = rhs_rank - lhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs.unsqueeze_dims(&[#(#dims),*]).powi(#rhs) }
-                }
+                let lhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #lhs }, lhs_rank, rhs_rank);
+                let rhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #rhs }, rhs_rank, lhs_rank);
+                quote! { #lhs_bc.powi(#rhs_bc) }
             }
             (PowerType::Float, lhs_ty, rhs_ty)
                 if lhs_ty.is_on_device() && rhs_ty.is_on_device() =>
             {
                 let lhs_rank = lhs_ty.rank();
                 let rhs_rank = rhs_ty.rank();
-                if lhs_rank == rhs_rank {
-                    quote! { #lhs.powf(#rhs) }
-                } else if lhs_rank > rhs_rank {
-                    let num_dims = lhs_rank - rhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs.powf(#rhs.unsqueeze_dims(&[#(#dims),*])) }
-                } else {
-                    let num_dims = rhs_rank - lhs_rank;
-                    let dims: Vec<isize> = (0..num_dims).map(|i| i as isize).collect();
-                    quote! { #lhs.unsqueeze_dims(&[#(#dims),*]).powf(#rhs) }
-                }
+                let lhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #lhs }, lhs_rank, rhs_rank);
+                let rhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #rhs }, rhs_rank, lhs_rank);
+                quote! { #lhs_bc.powf(#rhs_bc) }
             }
             // ScalarNative + ScalarNative (native Rust pow)
             (PowerType::Float, ArgType::ScalarNative(_), ArgType::ScalarNative(_)) => {
@@ -187,7 +175,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, base: Tensor<B, 3>, exponent: Tensor<B, 2>) -> Tensor<B, 3> {
-            let output = base.powf(exponent.unsqueeze_dims(&[0isize]));
+            let output = base.powf((exponent).unsqueeze_dims(&[0isize]));
             output
         }
         ");
@@ -202,7 +190,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, base: Tensor<B, 2>, exponent: Tensor<B, 3>) -> Tensor<B, 3> {
-            let output = base.unsqueeze_dims(&[0isize]).powf(exponent);
+            let output = (base).unsqueeze_dims(&[0isize]).powf(exponent);
             output
         }
         ");
@@ -217,7 +205,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, base: Tensor<B, 3>, exponent: Tensor<B, 1>) -> Tensor<B, 3> {
-            let output = base.powf(exponent.unsqueeze_dims(&[0isize, 1isize]));
+            let output = base.powf((exponent).unsqueeze_dims(&[0isize, 1isize]));
             output
         }
         ");
@@ -232,7 +220,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, base: Tensor<B, 1>, exponent: Tensor<B, 3>) -> Tensor<B, 3> {
-            let output = base.unsqueeze_dims(&[0isize, 1isize]).powf(exponent);
+            let output = (base).unsqueeze_dims(&[0isize, 1isize]).powf(exponent);
             output
         }
         ");
@@ -279,7 +267,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, base: Tensor<B, 3>, exponent: Tensor<B, 2, Int>) -> Tensor<B, 3> {
-            let output = base.powi(exponent.unsqueeze_dims(&[0isize]));
+            let output = base.powi((exponent).unsqueeze_dims(&[0isize]));
             output
         }
         ");
@@ -294,7 +282,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, base: Tensor<B, 2>, exponent: Tensor<B, 3, Int>) -> Tensor<B, 3> {
-            let output = base.unsqueeze_dims(&[0isize]).powi(exponent);
+            let output = (base).unsqueeze_dims(&[0isize]).powi(exponent);
             output
         }
         ");
@@ -309,7 +297,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, base: Tensor<B, 3>, exponent: Tensor<B, 1, Int>) -> Tensor<B, 3> {
-            let output = base.powi(exponent.unsqueeze_dims(&[0isize, 1isize]));
+            let output = base.powi((exponent).unsqueeze_dims(&[0isize, 1isize]));
             output
         }
         ");
@@ -324,7 +312,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, base: Tensor<B, 1>, exponent: Tensor<B, 3, Int>) -> Tensor<B, 3> {
-            let output = base.unsqueeze_dims(&[0isize, 1isize]).powi(exponent);
+            let output = (base).unsqueeze_dims(&[0isize, 1isize]).powi(exponent);
             output
         }
         ");

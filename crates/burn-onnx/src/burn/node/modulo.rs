@@ -24,50 +24,17 @@ impl NodeCodegen for onnx_ir::modulo::ModNode {
                 let lhs_rank = lhs_ty.rank();
                 let rhs_rank = rhs_ty.rank();
 
-                // Handle broadcasting if ranks differ
-                if lhs_rank != rhs_rank {
-                    let (smaller_tensor, larger_tensor, smaller_rank, larger_rank) =
-                        if lhs_rank < rhs_rank {
-                            (&lhs, &rhs, lhs_rank, rhs_rank)
-                        } else {
-                            (&rhs, &lhs, rhs_rank, lhs_rank)
-                        };
-
-                    // Calculate dimensions to unsqueeze
-                    let rank_diff = larger_rank - smaller_rank;
-                    let unsqueeze_dims = (0..rank_diff)
-                        .map(|i| {
-                            let i = i as isize;
-                            quote! { #i }
-                        })
-                        .collect::<Vec<_>>();
-
-                    let mod_op = if self.config.fmod {
-                        quote! { fmod }
-                    } else {
-                        quote! { remainder }
-                    };
-
-                    if lhs_rank < rhs_rank {
-                        quote! {
-                            let #output = #smaller_tensor
-                                .unsqueeze_dims(&[#(#unsqueeze_dims),*])
-                                .#mod_op(#larger_tensor);
-                        }
-                    } else {
-                        quote! {
-                            let #output = #larger_tensor.#mod_op(#smaller_tensor.unsqueeze_dims(&[#(#unsqueeze_dims),*]));
-                        }
-                    }
+                let mod_op = if self.config.fmod {
+                    quote! { fmod }
                 } else {
-                    let mod_op = if self.config.fmod {
-                        quote! { fmod }
-                    } else {
-                        quote! { remainder }
-                    };
-                    quote! {
-                        let #output = #lhs.#mod_op(#rhs);
-                    }
+                    quote! { remainder }
+                };
+                let lhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #lhs }, lhs_rank, rhs_rank);
+                let rhs_bc =
+                    broadcast_helpers::leading_broadcast(quote! { #rhs }, rhs_rank, lhs_rank);
+                quote! {
+                    let #output = #lhs_bc.#mod_op(#rhs_bc);
                 }
             }
             (lhs_ty, ArgType::ScalarNative(_)) if lhs_ty.is_on_device() => {
@@ -191,7 +158,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 2>, b: Tensor<B, 3>) -> Tensor<B, 3> {
-            let output = a.unsqueeze_dims(&[0isize]).remainder(b);
+            let output = (a).unsqueeze_dims(&[0isize]).remainder(b);
             output
         }
         ");
@@ -208,7 +175,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 3>, b: Tensor<B, 2>) -> Tensor<B, 3> {
-            let output = a.remainder(b.unsqueeze_dims(&[0isize]));
+            let output = a.remainder((b).unsqueeze_dims(&[0isize]));
             output
         }
         ");
@@ -225,7 +192,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 2>, b: Tensor<B, 3>) -> Tensor<B, 3> {
-            let output = a.unsqueeze_dims(&[0isize]).fmod(b);
+            let output = (a).unsqueeze_dims(&[0isize]).fmod(b);
             output
         }
         ");
@@ -242,7 +209,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 3>, b: Tensor<B, 2>) -> Tensor<B, 3> {
-            let output = a.fmod(b.unsqueeze_dims(&[0isize]));
+            let output = a.fmod((b).unsqueeze_dims(&[0isize]));
             output
         }
         ");
@@ -261,7 +228,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 3>, b: Tensor<B, 1>) -> Tensor<B, 3> {
-            let output = a.remainder(b.unsqueeze_dims(&[0isize, 1isize]));
+            let output = a.remainder((b).unsqueeze_dims(&[0isize, 1isize]));
             output
         }
         ");
@@ -278,7 +245,7 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 3>, b: Tensor<B, 1>) -> Tensor<B, 3> {
-            let output = a.fmod(b.unsqueeze_dims(&[0isize, 1isize]));
+            let output = a.fmod((b).unsqueeze_dims(&[0isize, 1isize]));
             output
         }
         ");
