@@ -143,11 +143,12 @@ impl NodeProcessor for CastProcessor {
                         ),
                     });
                 }
-                element_type_from_proto(*type_id as i32)
-                    .map_err(|_| ProcessError::InvalidAttribute {
+                element_type_from_proto(*type_id as i32).map_err(|_| {
+                    ProcessError::InvalidAttribute {
                         name: "to".to_string(),
                         reason: format!("unsupported dtype: {}", type_id),
-                    })?
+                    }
+                })?
             }
             Some(_) => {
                 return Err(ProcessError::InvalidAttribute {
