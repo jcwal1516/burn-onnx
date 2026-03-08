@@ -313,7 +313,7 @@ mod tests {
         let mut node = create_test_node(ArgType::Shape(2)).build();
         node.attrs.insert(
             "value".to_string(),
-            AttributeValue::Tensor(TensorData::new(vec![7i64], vec![])),
+            AttributeValue::Tensor(TensorData::new(vec![7i64], [0usize; 0])),
         );
         let processor = ConstantOfShapeProcessor;
         let prefs = OutputPreferences::new();
@@ -404,7 +404,7 @@ mod tests {
         let mut node = create_test_node(ArgType::Shape(0)).build();
         node.attrs.insert(
             "value".to_string(),
-            AttributeValue::Tensor(TensorData::new(vec![42i64], vec![])),
+            AttributeValue::Tensor(TensorData::new(vec![42i64], [0usize; 0])),
         );
         let processor = ConstantOfShapeProcessor;
         let prefs = OutputPreferences::new();
@@ -426,7 +426,7 @@ mod tests {
         let mut node = TestNodeBuilder::new(NodeType::ConstantOfShape, "test_constantofshape")
             .input_tensor_i64_data("shape", vec![5i64], vec![1]) // Shape tensor with value [5]
             .output_tensor_f32("output", 0, None)
-            .attr_tensor("value", TensorData::new(vec![1i64], vec![]))
+            .attr_tensor("value", TensorData::new(vec![1i64], [0usize; 0]))
             .build_with_graph_data(16);
 
         // Override input type to Shape(1) - the processor expects this
@@ -453,7 +453,7 @@ mod tests {
         let mut node = create_test_node(ArgType::Shape(1)).build();
         node.attrs.insert(
             "value".to_string(),
-            AttributeValue::Tensor(TensorData::new(vec![1.5f32], vec![])),
+            AttributeValue::Tensor(TensorData::new(vec![1.5f32], [0usize; 0])),
         );
         let processor = ConstantOfShapeProcessor;
         let prefs = OutputPreferences::new();

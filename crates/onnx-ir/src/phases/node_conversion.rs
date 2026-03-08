@@ -230,10 +230,10 @@ fn extract_constant_from_attributes(node: &mut RawNode, state_rc: &Rc<RefCell<Gr
     {
         let tensor_data_opt: Option<TensorData> = match attr_value {
             AttributeValue::Tensor(tensor) => Some(tensor.clone()),
-            AttributeValue::Float32(val) => Some(TensorData::new(vec![*val], vec![])),
-            AttributeValue::Float32s(vals) => Some(TensorData::new(vals.clone(), vec![vals.len()])),
-            AttributeValue::Int64(val) => Some(TensorData::new(vec![*val], vec![])),
-            AttributeValue::Int64s(vals) => Some(TensorData::new(vals.clone(), vec![vals.len()])),
+            AttributeValue::Float32(val) => Some(TensorData::new(vec![*val], [0usize; 0])),
+            AttributeValue::Float32s(vals) => Some(TensorData::new(vals.clone(), [vals.len()])),
+            AttributeValue::Int64(val) => Some(TensorData::new(vec![*val], [0usize; 0])),
+            AttributeValue::Int64s(vals) => Some(TensorData::new(vals.clone(), [vals.len()])),
             _ => None,
         };
 

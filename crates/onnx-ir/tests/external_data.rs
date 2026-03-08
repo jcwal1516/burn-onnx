@@ -38,7 +38,7 @@ fn test_external_data_values() {
                 let shape = data.shape.clone();
 
                 // Weight tensor should be [4, 4] with diagonal values [1, 2, 3, 4]
-                if shape == vec![4, 4] {
+                if shape == burn_tensor::Shape::new([4, 4]) {
                     let values: Vec<f32> = data.as_slice().unwrap().to_vec();
                     // Check diagonal elements
                     assert_eq!(values[0], 1.0, "weight[0,0] should be 1.0");
@@ -48,7 +48,7 @@ fn test_external_data_values() {
                 }
 
                 // Bias tensor should be [4] with values [0.1, 0.2, 0.3, 0.4]
-                if shape == vec![4] {
+                if shape == burn_tensor::Shape::new([4]) {
                     let values: Vec<f32> = data.as_slice().unwrap().to_vec();
                     assert!((values[0] - 0.1).abs() < 1e-6, "bias[0] should be 0.1");
                     assert!((values[1] - 0.2).abs() < 1e-6, "bias[1] should be 0.2");
@@ -85,7 +85,11 @@ fn test_external_data_with_offset() {
             && let Some(output) = const_node.outputs.first()
             && let Some(data) = output.value()
         {
-            assert_eq!(data.shape, vec![2, 3], "Expected shape [2, 3]");
+            assert_eq!(
+                data.shape,
+                burn_tensor::Shape::new([2, 3]),
+                "Expected shape [2, 3]"
+            );
             let values: Vec<f32> = data.as_slice().unwrap().to_vec();
             assert_eq!(values, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
         }
@@ -157,7 +161,7 @@ fn test_multiple_external_files() {
             let shape = data.shape.clone();
 
             // Weight tensor should be [4, 4] with diagonal values [1, 2, 3, 4]
-            if shape == vec![4, 4] {
+            if shape == burn_tensor::Shape::new([4, 4]) {
                 let values: Vec<f32> = data.as_slice().unwrap().to_vec();
                 assert_eq!(values[0], 1.0, "weight[0,0] should be 1.0");
                 assert_eq!(values[5], 2.0, "weight[1,1] should be 2.0");
@@ -167,7 +171,7 @@ fn test_multiple_external_files() {
             }
 
             // Bias tensor should be [4] with values [0.5, 0.5, 0.5, 0.5]
-            if shape == vec![4] {
+            if shape == burn_tensor::Shape::new([4]) {
                 let values: Vec<f32> = data.as_slice().unwrap().to_vec();
                 assert!((values[0] - 0.5).abs() < 1e-6, "bias[0] should be 0.5");
                 assert!((values[1] - 0.5).abs() < 1e-6, "bias[1] should be 0.5");

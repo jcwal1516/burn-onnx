@@ -152,7 +152,7 @@ mod tests {
     fn test_constant_of_shape_scalar_f32() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![3.14f32], vec![])),
+            value: Some(TensorData::new(vec![3.14f32], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dims", 1)
@@ -172,7 +172,7 @@ mod tests {
     fn test_constant_of_shape_scalar_f64() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![2.718f64], vec![])),
+            value: Some(TensorData::new(vec![2.718f64], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("shape_in", 1)
@@ -192,7 +192,7 @@ mod tests {
     fn test_constant_of_shape_scalar_i32() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![42i32], vec![])),
+            value: Some(TensorData::new(vec![42i32], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("s", 1)
@@ -212,7 +212,7 @@ mod tests {
     fn test_constant_of_shape_scalar_i64() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![999i64], vec![])),
+            value: Some(TensorData::new(vec![999i64], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("shape_data", 1)
@@ -232,7 +232,7 @@ mod tests {
     fn test_constant_of_shape_scalar_bool() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![true], vec![])),
+            value: Some(TensorData::new(vec![true], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("shape_vec", 1)
@@ -274,7 +274,7 @@ mod tests {
     fn test_constant_of_shape_tensor_f32_static() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![2, 3, 4]),
-            value: Some(TensorData::new(vec![1.5f32], vec![])),
+            value: Some(TensorData::new(vec![1.5f32], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("target_shape", 3)
@@ -303,7 +303,7 @@ mod tests {
     fn test_constant_of_shape_tensor_f64_static() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![10, 20]),
-            value: Some(TensorData::new(vec![0.5f64], vec![])),
+            value: Some(TensorData::new(vec![0.5f64], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dims", 2)
@@ -332,7 +332,7 @@ mod tests {
     fn test_constant_of_shape_tensor_i32_static() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![5, 5]),
-            value: Some(TensorData::new(vec![7i32], vec![])),
+            value: Some(TensorData::new(vec![7i32], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("size", 2)
@@ -362,7 +362,7 @@ mod tests {
     fn test_constant_of_shape_tensor_i64_static() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![8]),
-            value: Some(TensorData::new(vec![100i64], vec![])),
+            value: Some(TensorData::new(vec![100i64], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("length", 1)
@@ -392,7 +392,7 @@ mod tests {
     fn test_constant_of_shape_tensor_bool_true_static() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![3, 4]),
-            value: Some(TensorData::new(vec![true], vec![])),
+            value: Some(TensorData::new(vec![true], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("shape_dims", 2)
@@ -412,7 +412,7 @@ mod tests {
     fn test_constant_of_shape_tensor_bool_false_static() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![6, 7, 8]),
-            value: Some(TensorData::new(vec![false], vec![])),
+            value: Some(TensorData::new(vec![false], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dimensions", 3)
@@ -467,7 +467,7 @@ mod tests {
                 name: "dynamic_shape".to_string(),
                 input_index: 0,
             }),
-            value: Some(TensorData::new(vec![2.5f32], vec![])),
+            value: Some(TensorData::new(vec![2.5f32], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dynamic_shape", 3)
@@ -499,7 +499,7 @@ mod tests {
                 name: "shape_param".to_string(),
                 input_index: 0,
             }),
-            value: Some(TensorData::new(vec![255i64], vec![])),
+            value: Some(TensorData::new(vec![255i64], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("shape_param", 2)
@@ -532,7 +532,7 @@ mod tests {
                 name: "sz".to_string(),
                 input_index: 0,
             }),
-            value: Some(TensorData::new(vec![true], vec![])),
+            value: Some(TensorData::new(vec![true], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("sz", 4)
@@ -555,7 +555,7 @@ mod tests {
                 name: "target_dims".to_string(),
                 input_index: 0,
             }),
-            value: Some(TensorData::new(vec![false], vec![])),
+            value: Some(TensorData::new(vec![false], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("target_dims", 2)
@@ -609,7 +609,7 @@ mod tests {
     fn test_constant_of_shape_scalar_f32_infinity() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![f32::INFINITY], vec![])),
+            value: Some(TensorData::new(vec![f32::INFINITY], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dims", 1)
@@ -629,7 +629,7 @@ mod tests {
     fn test_constant_of_shape_scalar_f32_neg_infinity() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![f32::NEG_INFINITY], vec![])),
+            value: Some(TensorData::new(vec![f32::NEG_INFINITY], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dims", 1)
@@ -649,7 +649,7 @@ mod tests {
     fn test_constant_of_shape_scalar_f32_nan() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![f32::NAN], vec![])),
+            value: Some(TensorData::new(vec![f32::NAN], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dims", 1)
@@ -669,7 +669,7 @@ mod tests {
     fn test_constant_of_shape_scalar_f64_infinity() {
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![]),
-            value: Some(TensorData::new(vec![f64::INFINITY], vec![])),
+            value: Some(TensorData::new(vec![f64::INFINITY], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dims", 1)
@@ -692,7 +692,7 @@ mod tests {
         // Test Shape(3) output - creates array with 3 elements
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![3]), // Output will have 3 elements
-            value: Some(TensorData::new(vec![10i64], vec![])),
+            value: Some(TensorData::new(vec![10i64], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("in_shape", 1)
@@ -713,7 +713,7 @@ mod tests {
         // Test Shape(1) output - creates array with 1 element
         let config = ConstantOfShapeConfig {
             shape: ConstantOfShapeShape::Static(vec![1]), // Output will have 1 element
-            value: Some(TensorData::new(vec![5i64], vec![])),
+            value: Some(TensorData::new(vec![5i64], [0usize; 0])),
         };
         let node = ConstantOfShapeNodeBuilder::new("const1")
             .input_shape("dims", 1)

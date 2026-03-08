@@ -241,7 +241,7 @@ impl TestNodeBuilder {
         // If value is provided, store it as constant data
         if let Some(v) = value {
             self.constant_data
-                .insert(name.to_string(), TensorData::new(vec![v], vec![]));
+                .insert(name.to_string(), TensorData::new(vec![v], [0usize; 0]));
         }
         self
     }
@@ -270,7 +270,7 @@ impl TestNodeBuilder {
         // If value is provided, store it as constant data
         if let Some(v) = value {
             self.constant_data
-                .insert(name.to_string(), TensorData::new(vec![v], vec![]));
+                .insert(name.to_string(), TensorData::new(vec![v], [0usize; 0]));
         }
         self
     }

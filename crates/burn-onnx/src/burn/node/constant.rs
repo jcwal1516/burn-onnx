@@ -29,7 +29,7 @@ impl NodeCodegen for onnx_ir::node::constant::ConstantNode {
         let shape = if tensor_data.shape.is_empty() {
             vec![1usize].to_tokens()
         } else {
-            tensor_data.shape.to_tokens()
+            tensor_data.shape.to_vec().to_tokens()
         };
 
         // For ScalarTensor, embed the actual value in the initializer so Model::new()
@@ -151,7 +151,7 @@ impl NodeCodegen for onnx_ir::node::constant::ConstantNode {
 
         // Collect snapshots for tensor and ScalarTensor constants.
         // ScalarTensor values are also embedded in the field initializer for Model::new(),
-        // but burnpack needs them too for Model::from_file() / from_embedded().
+        // but burnpack needs them too for Model::from_file() / from_bytes() / from_embedded().
         match &output.ty {
             ArgType::Tensor(_) | ArgType::ScalarTensor(_) => {
                 if let Some(input) = self.inputs.first() {

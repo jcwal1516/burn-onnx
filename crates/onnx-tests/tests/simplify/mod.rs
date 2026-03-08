@@ -540,7 +540,7 @@ mod tests {
                 let matmul1_out1 = q.matmul(transpose1_out1);
                 let constant1_out1 = self.constant1.val();
                 let div1_out1 = matmul1_out1
-                    .div(constant1_out1.unsqueeze_dims(&[0isize, 1isize, 2isize]));
+                    .div((constant1_out1).unsqueeze_dims(&[0isize, 1isize, 2isize]));
                 let softmax1_out1 = burn::tensor::activation::softmax(div1_out1, 3);
                 let matmul2_out1 = softmax1_out1.matmul(v);
                 matmul2_out1

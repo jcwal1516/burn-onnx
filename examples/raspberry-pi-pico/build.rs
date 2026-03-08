@@ -8,7 +8,7 @@
 //! updating `memory.x` ensures a rebuild of the application with the
 //! new memory settings.
 
-use burn_onnx::ModelGen;
+use burn_onnx::{LoadStrategy, ModelGen};
 use std::env;
 use std::fs::File;
 use std::io::Write;
@@ -42,6 +42,6 @@ fn generate_model() {
     ModelGen::new()
         .input("src/model/sine.onnx")
         .out_dir("model/")
-        .embed_states(true)
+        .load_strategy(LoadStrategy::Embedded)
         .run_from_script();
 }
