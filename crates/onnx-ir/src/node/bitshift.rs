@@ -76,12 +76,11 @@ impl NodeProcessor for BitShiftProcessor {
     fn infer_types(
         &self,
         node: &mut RawNode,
-        _opset: usize,
+        opset: usize,
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
-        // TODO: Add validation for unexpected attributes
-        // FIXME: Spec says 'direction' is required but extract_config provides default "left"
-        // Should either validate presence here or update spec documentation
+        // Validate node attributes
+        let _ = self.extract_config(node, opset)?;
 
         // Output type is same as input with broadcasting
         crate::processor::same_as_input_broadcast(node);
@@ -91,12 +90,11 @@ impl NodeProcessor for BitShiftProcessor {
 
     fn extract_config(&self, node: &RawNode, _opset: usize) -> Result<Self::Config, ProcessError> {
         // Extract direction attribute
-        // FIXME: Spec marks 'direction' as required, but we provide default "left"
         let direction_str = node
             .attrs
             .get("direction")
             .map(|val| val.clone().into_string())
-            .unwrap_or_else(|| "left".to_string());
+            .ok_or_else(|| ProcessError::MissingAttribute("direction".to_string()))?;
 
         let direction =
             Direction::from_str(&direction_str).map_err(|e| ProcessError::InvalidAttribute {
@@ -170,11 +168,11 @@ mod tests {
             .output_tensor_i32("Z", 2, None)
             .build();
 
-        let mut node = node;
         let processor = BitShiftProcessor;
-        let prefs = OutputPreferences::new();
-        let config = processor.extract_config(&node, 16).unwrap();
-        processor.infer_types(&mut node, 16, &prefs).unwrap();
-        assert_eq!(config.direction, Direction::Left);
+        let extract_result = processor.extract_config(&node, 16);
+        assert!(matches!(
+            extract_result,
+            Err(ProcessError::MissingAttribute(ref s)) if s == "direction"
+        ));
     }
 }
