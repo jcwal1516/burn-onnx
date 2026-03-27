@@ -1,5 +1,5 @@
 use crate::ir::{
-    ArgType, Argument, AttributeValue, DType, NodeType, RawNode, TensorData, TensorType,
+    ArgType, Argument, AttributeValue, BoolStore, DType, NodeType, RawNode, TensorData, TensorType,
 };
 use std::collections::HashMap;
 
@@ -132,7 +132,7 @@ impl TestNodeBuilder {
         self.add_input(
             name,
             ArgType::Tensor(TensorType {
-                dtype: DType::Bool,
+                dtype: DType::Bool(BoolStore::Native),
                 rank,
                 static_shape,
             }),
@@ -387,7 +387,7 @@ impl TestNodeBuilder {
         self.add_output(
             name,
             ArgType::Tensor(TensorType {
-                dtype: DType::Bool,
+                dtype: DType::Bool(BoolStore::Native),
                 rank,
                 static_shape,
             }),

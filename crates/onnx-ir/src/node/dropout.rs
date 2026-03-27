@@ -107,7 +107,7 @@ impl NodeProcessor for DropoutProcessor {
             let input_type = &node.inputs[0].ty;
             if let crate::ir::ArgType::Tensor(input_tensor) = input_type {
                 node.outputs[1].ty = crate::ir::ArgType::Tensor(crate::ir::TensorType {
-                    dtype: crate::ir::DType::Bool,
+                    dtype: crate::ir::DType::Bool(crate::ir::BoolStore::Native),
                     rank: input_tensor.rank,
                     static_shape: input_tensor.static_shape.clone(),
                 });

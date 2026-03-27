@@ -11,7 +11,7 @@ use onnx_ir_derive::NodeBuilder;
 
 use crate::ir::Argument;
 
-use crate::ir::{ArgType, DType, Node, RawNode, TensorType};
+use crate::ir::{ArgType, BoolStore, DType, Node, RawNode, TensorType};
 use crate::processor::{
     InputSpec, NodeProcessor, NodeSpec, OutputPreferences, OutputSpec, ProcessError,
 };
@@ -74,7 +74,7 @@ impl NodeProcessor for BernoulliProcessor {
             DataType::INT32 => DType::I32,
             DataType::INT64 => DType::I64,
             DataType::DOUBLE => DType::F64,
-            DataType::BOOL => DType::Bool,
+            DataType::BOOL => DType::Bool(BoolStore::Native),
             _ => tensor.dtype, // Fallback to input type for unsupported dtype
         });
 

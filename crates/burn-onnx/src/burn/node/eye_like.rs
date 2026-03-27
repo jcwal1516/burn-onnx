@@ -45,7 +45,7 @@ impl NodeCodegen for onnx_ir::node::eye_like::EyeLikeNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::node::eye_like::{EyeLikeConfig, EyeLikeNodeBuilder};
 
@@ -93,8 +93,8 @@ mod tests {
     fn test_eye_like_bool() {
         let config = EyeLikeConfig::new(None, 0);
         let node = EyeLikeNodeBuilder::new("eye3")
-            .input_tensor("input", 2, DType::Bool)
-            .output_tensor("output", 2, DType::Bool)
+            .input_tensor("input", 2, DType::Bool(BoolStore::Native))
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);

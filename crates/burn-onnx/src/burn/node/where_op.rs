@@ -22,7 +22,12 @@ impl NodeCodegen for onnx_ir::where_op::WhereNode {
                 let target_dtype = out_tensor.dtype;
 
                 // Get condition as tensor (condition uses Bool dtype, not target dtype)
-                let cond = where_input_as_tensor(condition_arg, broadcast_rank, DType::Bool, scope);
+                let cond = where_input_as_tensor(
+                    condition_arg,
+                    broadcast_rank,
+                    DType::Bool(BoolStore::Native),
+                    scope,
+                );
 
                 // Get y as tensor
                 let y_tensor = where_input_as_tensor(y_arg, broadcast_rank, target_dtype, scope);
@@ -195,18 +200,16 @@ fn where_input_as_tensor(
 
             if target_dtype.is_float() {
                 quote! {
-                    Tensor::<B, 1>::from_data_dtype(
+                    Tensor::<B, 1>::from_data(
                         burn::tensor::TensorData::from([#name as f64]),
-                        &*self.device,
-                        #dtype_tokens
+                        (&*self.device, #dtype_tokens)
                     ).reshape([#(#shape_vec),*])
                 }
             } else if target_dtype.is_int() || target_dtype.is_uint() {
                 quote! {
-                    Tensor::<B, 1, burn::tensor::Int>::from_data_dtype(
+                    Tensor::<B, 1, burn::tensor::Int>::from_data(
                         burn::tensor::TensorData::from([#name as i64]),
-                        &*self.device,
-                        #dtype_tokens
+                        (&*self.device, #dtype_tokens)
                     ).reshape([#(#shape_vec),*])
                 }
             } else {
@@ -217,10 +220,9 @@ fn where_input_as_tensor(
                     quote! { #name != 0 }
                 };
                 quote! {
-                    Tensor::<B, 1, burn::tensor::Bool>::from_data_dtype(
+                    Tensor::<B, 1, burn::tensor::Bool>::from_data(
                         burn::tensor::TensorData::from([#bool_expr]),
-                        &*self.device,
-                        #dtype_tokens
+                        (&*self.device, #dtype_tokens)
                     ).reshape([#(#shape_vec),*])
                 }
             }
@@ -230,10 +232,9 @@ fn where_input_as_tensor(
             let name = arg_to_ident(arg);
             let dtype_tokens = target_dtype.to_tokens();
             let tensor = quote! {
-                Tensor::<B, 1, burn::tensor::Int>::from_data_dtype(
+                Tensor::<B, 1, burn::tensor::Int>::from_data(
                     burn::tensor::TensorData::from(&#name as &[i64]),
-                    &*self.device,
-                    #dtype_tokens
+                    (&*self.device, #dtype_tokens)
                 )
             };
 
@@ -252,14 +253,14 @@ fn where_input_as_tensor(
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::where_op::WhereNodeBuilder;
 
     #[test]
     fn test_where_tensor_tensor_tensor() {
         let node = WhereNodeBuilder::new("where1")
-            .input_tensor("condition", 2, DType::Bool)
+            .input_tensor("condition", 2, DType::Bool(BoolStore::Native))
             .input_tensor("x", 2, DType::F32)
             .input_tensor("y", 2, DType::F32)
             .output_tensor("output", 2, DType::F32)
@@ -281,7 +282,7 @@ mod tests {
     #[test]
     fn test_where_tensor_tensor_broadcasted_tensor_broadcasted() {
         let node = WhereNodeBuilder::new("where1")
-            .input_tensor("condition", 2, DType::Bool)
+            .input_tensor("condition", 2, DType::Bool(BoolStore::Native))
             .input_tensor("x", 1, DType::F32)
             .input_tensor("y", 1, DType::F32)
             .output_tensor("output", 2, DType::F32)
@@ -305,7 +306,7 @@ mod tests {
     #[test]
     fn test_where_tensor_scalar_tensor() {
         let node = WhereNodeBuilder::new("where1")
-            .input_tensor("condition", 2, DType::Bool)
+            .input_tensor("condition", 2, DType::Bool(BoolStore::Native))
             .input_scalar("x", DType::F32)
             .input_tensor("y", 2, DType::F32)
             .output_tensor("output", 2, DType::F32)
@@ -327,7 +328,7 @@ mod tests {
     #[test]
     fn test_where_tensor_scalar_scalar() {
         let node = WhereNodeBuilder::new("where1")
-            .input_tensor("condition", 2, DType::Bool)
+            .input_tensor("condition", 2, DType::Bool(BoolStore::Native))
             .input_scalar("x", DType::F32)
             .input_scalar("y", DType::F32)
             .output_tensor("output", 2, DType::F32)
@@ -340,10 +341,9 @@ mod tests {
                 Tensor::<
                     B,
                     1,
-                >::from_data_dtype(
+                >::from_data(
                         burn::tensor::TensorData::from([y as f64]),
-                        &*self.device,
-                        burn::tensor::DType::F32,
+                        (&*self.device, burn::tensor::DType::F32),
                     )
                     .reshape([1, 1])
                     .expand(cond.dims())
@@ -357,7 +357,7 @@ mod tests {
     #[test]
     fn test_where_scalar_scalar_scalar() {
         let node = WhereNodeBuilder::new("where1")
-            .input_scalar("condition", DType::Bool)
+            .input_scalar("condition", DType::Bool(BoolStore::Native))
             .input_scalar("x", DType::F32)
             .input_scalar("y", DType::F32)
             .output_scalar("output", DType::F32)

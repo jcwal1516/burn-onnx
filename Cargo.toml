@@ -74,10 +74,10 @@ strum = { version = "0.28.0", features = ["derive"] }
 bytes = { version = "1.11.1", default-features = false }
 memmap2 = { version = "0.9" }
 
-burn = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "3a0e604cb14e445cd5a3686fbe06d0e11c76f05a" }
-burn-ndarray = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "3a0e604cb14e445cd5a3686fbe06d0e11c76f05a" }
-burn-store = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "3a0e604cb14e445cd5a3686fbe06d0e11c76f05a" }
-burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "3a0e604cb14e445cd5a3686fbe06d0e11c76f05a" }
+burn = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "fa9f6815d1d03e3e54aaec67786b51a51c8bb55c" }
+burn-ndarray = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "fa9f6815d1d03e3e54aaec67786b51a51c8bb55c" }
+burn-store = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "fa9f6815d1d03e3e54aaec67786b51a51c8bb55c" }
+burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "fa9f6815d1d03e3e54aaec67786b51a51c8bb55c" }
 
 ### For local development. ###
 # burn = { path = "../burn/crates/burn", default-features = false }

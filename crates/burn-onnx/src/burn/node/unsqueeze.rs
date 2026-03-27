@@ -67,31 +67,28 @@ impl NodeCodegen for onnx_ir::unsqueeze::UnsqueezeNode {
                 // Create tensor from scalar with explicit dtype
                 let tensor_creation = match &output_tensor.dtype {
                     dtype if dtype.is_int() || dtype.is_uint() => {
-                        // Cast to i64 for TensorData, then from_data_dtype converts to target dtype
+                        // Cast to i64 for TensorData, then from_data converts to target dtype
                         quote! {
-                            Tensor::<B, #output_rank, Int>::from_data_dtype(
+                            Tensor::<B, #output_rank, Int>::from_data(
                                 burn::tensor::TensorData::from([#scalar_name as i64]),
-                                &self.device,
-                                #dtype_tokens
+                                (&*self.device, #dtype_tokens)
                             ).unsqueeze()
                         }
                     }
                     dtype if dtype.is_float() => {
-                        // Cast to f64 for TensorData, then from_data_dtype converts to target dtype
+                        // Cast to f64 for TensorData, then from_data converts to target dtype
                         quote! {
-                            Tensor::<B, #output_rank>::from_data_dtype(
+                            Tensor::<B, #output_rank>::from_data(
                                 burn::tensor::TensorData::from([#scalar_name as f64]),
-                                &self.device,
-                                #dtype_tokens
+                                (&*self.device, #dtype_tokens)
                             ).unsqueeze()
                         }
                     }
                     dtype if dtype.is_bool() => {
                         quote! {
-                            Tensor::<B, #output_rank, Bool>::from_data_dtype(
+                            Tensor::<B, #output_rank, Bool>::from_data(
                                 burn::tensor::TensorData::from([#scalar_name != 0]),
-                                &self.device,
-                                #dtype_tokens
+                                (&*self.device, #dtype_tokens)
                             ).unsqueeze()
                         }
                     }

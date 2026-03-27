@@ -15,7 +15,7 @@ mod tests {
         let model: dequantize_linear::Model<TestBackend> = dequantize_linear::Model::new(&device);
 
         let input_data = TensorData::from([[2i32, 4, 6, 10]]);
-        let input = Tensor::<TestBackend, 2, Int>::from_data_dtype(input_data, &device, DType::I32);
+        let input = Tensor::<TestBackend, 2, Int>::from_data(input_data, (&device, DType::I32));
         let scale = Tensor::<TestBackend, 1>::from_floats([0.5], &device);
 
         let output = model.forward(input, scale);
@@ -33,7 +33,7 @@ mod tests {
             dequantize_linear_axis::Model::new(&device);
 
         let input_data = TensorData::from([[2i32, 4, 6], [1, 3, 5]]);
-        let input = Tensor::<TestBackend, 2, Int>::from_data_dtype(input_data, &device, DType::I32);
+        let input = Tensor::<TestBackend, 2, Int>::from_data(input_data, (&device, DType::I32));
         let scale = Tensor::<TestBackend, 1>::from_floats([0.5, 2.0], &device);
 
         let output = model.forward(input, scale);

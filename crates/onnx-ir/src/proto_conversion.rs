@@ -15,7 +15,7 @@ use super::protos::{
 use crate::external_data::ExternalDataInfo;
 use crate::tensor_store::TensorDataRef;
 
-use burn_tensor::DType;
+use burn_tensor::{BoolStore, DType};
 use protobuf::Enum;
 
 /// Default ONNX opset version used when opset information is not available.
@@ -116,7 +116,7 @@ pub fn element_type_from_proto(dt_i32: i32) -> Result<DType, String> {
         DT::UINT32 => Ok(DType::U32),
         DT::UINT16 => Ok(DType::U16),
         DT::UINT8 => Ok(DType::U8),
-        DT::BOOL => Ok(DType::Bool),
+        DT::BOOL => Ok(DType::Bool(BoolStore::Native)),
         DT::STRING => Err("String tensors not supported".to_string()),
         other => Err(format!("unsupported dtype {:?}", other)),
     }
@@ -240,7 +240,7 @@ pub fn argument_from_initializer(initializer: &TensorProto) -> (Argument, Tensor
                     DType::U16 => TensorData::new(Vec::<u16>::new(), shape_usize.clone()),
                     DType::U32 => TensorData::new(Vec::<u32>::new(), shape_usize.clone()),
                     DType::U64 => TensorData::new(Vec::<u64>::new(), shape_usize.clone()),
-                    DType::Bool => TensorData::new(Vec::<bool>::new(), shape_usize.clone()),
+                    DType::Bool(_) => TensorData::new(Vec::<bool>::new(), shape_usize.clone()),
                     _ => panic!(
                         "Unsupported dtype {:?} for empty tensor '{}' (data_type={})",
                         dtype, name, initializer.data_type
@@ -366,7 +366,7 @@ pub fn tensor_data_ref_from_proto(
             | DType::U32
             | DType::U16
             | DType::U8
-            | DType::Bool => Ok(TensorDataRef::new(tensor.raw_data, shape, elem)),
+            | DType::Bool(_) => Ok(TensorDataRef::new(tensor.raw_data, shape, elem)),
             _ => Err(ParseError::VariantNotFound(format!(
                 "Unsupported dtype {:?}",
                 elem
@@ -406,7 +406,7 @@ pub fn tensor_data_ref_from_proto(
                 let data: Vec<u8> = tensor.int32_data.iter().map(|&x| x as u8).collect();
                 bytes::Bytes::from(data)
             }
-            DType::Bool => {
+            DType::Bool(_) => {
                 let data: Vec<u8> = tensor.int32_data.iter().map(|&x| (x != 0) as u8).collect();
                 bytes::Bytes::from(data)
             }

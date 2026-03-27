@@ -239,10 +239,10 @@ impl NodeProcessor for IfProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DType;
     use crate::ir::AttributeValue;
     use crate::ir::{Argument, NodeType, OnnxGraph, TensorType};
     use crate::node::test_utils::TestNodeBuilder;
+    use crate::{BoolStore, DType};
     use std::collections::HashMap;
 
     fn create_test_branch(output_rank: usize, dtype: DType) -> OnnxGraph {
@@ -276,7 +276,7 @@ mod tests {
         );
 
         let mut node = TestNodeBuilder::new(NodeType::If, "test_if")
-            .input_scalar("cond", DType::Bool)
+            .input_scalar("cond", DType::Bool(BoolStore::Native))
             .build();
         node.attrs = attrs;
 
@@ -352,7 +352,7 @@ mod tests {
         );
 
         let mut node = TestNodeBuilder::new(NodeType::If, "test_if")
-            .input_scalar("cond", DType::Bool)
+            .input_scalar("cond", DType::Bool(BoolStore::Native))
             .build();
         node.attrs = attrs;
 

@@ -375,7 +375,7 @@ impl NodeProcessor for PadProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{ArgType, Argument, DType, NodeType, TensorType};
+    use crate::ir::{ArgType, Argument, BoolStore, DType, NodeType, TensorType};
     use crate::node::test_utils::TestNodeBuilder;
 
     fn create_test_node(
@@ -814,7 +814,7 @@ mod tests {
         let bool_data = TensorData::new(vec![false, false, true, true], vec![4]);
         let node = TestNodeBuilder::new(NodeType::Pad, "test_pad")
             .input_tensor_f32("data", 2, None)
-            .input_tensor_with_data("pads", DType::Bool, 1, bool_data)
+            .input_tensor_with_data("pads", DType::Bool(BoolStore::Native), 1, bool_data)
             .output_tensor_f32("output", 2, None)
             .build_with_graph_data(16);
         let processor = PadProcessor;

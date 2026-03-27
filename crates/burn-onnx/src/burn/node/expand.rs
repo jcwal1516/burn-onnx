@@ -45,16 +45,15 @@ impl NodeCodegen for onnx_ir::expand::ExpandNode {
             let dtype = input_arg.ty.elem_type();
             let dtype_tokens = dtype.to_tokens();
             let kind = match dtype {
-                DType::Bool => quote! { , Bool },
+                DType::Bool(_) => quote! { , Bool },
                 _ if dtype.is_float() => quote! {},
                 _ => quote! { , Int },
             };
             return quote! {
                 let #output = {
-                    let input = Tensor::<B, 1 #kind>::from_data_dtype(
+                    let input = Tensor::<B, 1 #kind>::from_data(
                         burn::tensor::TensorData::from([#input]),
-                        &*self.device,
-                        #dtype_tokens
+                        (&*self.device, #dtype_tokens)
                     );
                     input.expand(#shape)
                 };
@@ -84,7 +83,7 @@ impl NodeCodegen for onnx_ir::expand::ExpandNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::expand::{ExpandConfig, ExpandNode, ExpandNodeBuilder};
 
@@ -163,10 +162,9 @@ mod tests {
                     B,
                     1,
                     Int,
-                >::from_data_dtype(
+                >::from_data(
                     burn::tensor::TensorData::from([input]),
-                    &*self.device,
-                    burn::tensor::DType::I64,
+                    (&*self.device, burn::tensor::DType::I64),
                 );
                 input.expand([2, 3])
             };
@@ -190,10 +188,9 @@ mod tests {
                 let input = Tensor::<
                     B,
                     1,
-                >::from_data_dtype(
+                >::from_data(
                     burn::tensor::TensorData::from([input]),
-                    &*self.device,
-                    burn::tensor::DType::F32,
+                    (&*self.device, burn::tensor::DType::F32),
                 );
                 input.expand([2, 3])
             };
@@ -206,8 +203,8 @@ mod tests {
     fn test_expand_scalar_bool() {
         let config = ExpandConfig::Static(vec![2, 3]);
         let node = ExpandNodeBuilder::new("expand_scalar")
-            .input_scalar("input", DType::Bool)
-            .output_tensor("output", 2, DType::Bool)
+            .input_scalar("input", DType::Bool(BoolStore::Native))
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -218,10 +215,9 @@ mod tests {
                     B,
                     1,
                     Bool,
-                >::from_data_dtype(
+                >::from_data(
                     burn::tensor::TensorData::from([input]),
-                    &*self.device,
-                    burn::tensor::DType::Bool,
+                    (&*self.device, burn::tensor::DType::Bool(burn::tensor::BoolStore::Native)),
                 );
                 input.expand([2, 3])
             };

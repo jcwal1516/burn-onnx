@@ -248,7 +248,7 @@ pub fn create_lazy_snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use onnx_ir::ir::DType;
+    use onnx_ir::ir::{BoolStore, DType};
 
     #[test]
     fn tensor_kind_from_dtype_float_types() {
@@ -276,6 +276,9 @@ mod tests {
 
     #[test]
     fn tensor_kind_from_dtype_bool() {
-        assert_eq!(TensorKind::from(DType::Bool), TensorKind::Bool);
+        assert_eq!(
+            TensorKind::from(DType::Bool(BoolStore::Native)),
+            TensorKind::Bool
+        );
     }
 }

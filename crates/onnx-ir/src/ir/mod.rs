@@ -18,7 +18,7 @@ pub use tensor_data_ext::TensorDataExt;
 
 // Re-exports
 pub use argument::{ArgType, Argument, DataId, Rank, Shape, TensorType, ValueSource};
-pub use burn_tensor::DType;
+pub use burn_tensor::{BoolStore, DType};
 pub use graph::OnnxGraph;
 pub use node::Node;
 pub use tensor_data_ext::TensorData;

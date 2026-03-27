@@ -269,7 +269,7 @@ impl NodeProcessor for AttentionProcessor {
 #[allow(clippy::too_many_arguments)]
 mod tests {
     use super::*;
-    use crate::{ir::DType, ir::NodeType, node::test_utils::TestNodeBuilder};
+    use crate::{ir::BoolStore, ir::DType, ir::NodeType, node::test_utils::TestNodeBuilder};
     use rstest::rstest;
 
     fn create_test_node(
@@ -393,9 +393,9 @@ mod tests {
     #[case(Some(4), Some(4), None, None, None, None, Some(4), None, None)]
     #[case(Some(4), Some(4), Some(4), None, None, None, None, None, None)]
     #[case(Some(4), Some(4), None, None, None, None, None, None, None)]
-    #[case(Some(4), Some(4), Some(4), Some((DType::Bool,2)), Some(2), None, Some(4), None, None)]
+    #[case(Some(4), Some(4), Some(4), Some((DType::Bool(BoolStore::Native),2)), Some(2), None, Some(4), None, None)]
     #[case(Some(4), Some(4), Some(4), None, None, None, Some(4), Some(2), None)]
-    #[case(Some(4), Some(4), Some(4), Some((DType::Bool,2)), Some(2), Some(2), Some(4), None, None)]
+    #[case(Some(4), Some(4), Some(4), Some((DType::Bool(BoolStore::Native),2)), Some(2), Some(2), Some(4), None, None)]
     // Mismatched ranks
     #[case(Some(4), Some(3), Some(3), None, None, None, Some(3), None, None)]
     #[case(Some(3), Some(4), Some(3), None, None, None, Some(4), None, None)]

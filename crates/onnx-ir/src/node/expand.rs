@@ -220,7 +220,7 @@ impl NodeProcessor for ExpandProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{DType, NodeType};
+    use crate::ir::{BoolStore, DType, NodeType};
     use crate::node::test_utils::TestNodeBuilder;
 
     fn create_test_node(
@@ -555,7 +555,7 @@ mod tests {
                 ArgType::Tensor(tensor) => {
                     assert_eq!(
                         tensor.dtype,
-                        DType::Bool,
+                        DType::Bool(BoolStore::Native),
                         "Expand should preserve Bool input type"
                     );
                     assert_eq!(tensor.rank, 3);

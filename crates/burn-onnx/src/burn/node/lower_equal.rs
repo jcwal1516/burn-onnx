@@ -38,20 +38,18 @@ impl NodeCodegen for onnx_ir::comparison::LessOrEqualNode {
             (ArgType::Shape(_), rhs_ty) if rhs_ty.is_on_device() => {
                 let dtype_tokens = rhs_ty.elem_type().to_tokens();
                 quote! {
-                    Tensor::<B, 1, burn::tensor::Int>::from_data_dtype(
+                    Tensor::<B, 1, burn::tensor::Int>::from_data(
                         burn::tensor::TensorData::from(&#lhs_value as &[i64]),
-                        &*self.device,
-                        #dtype_tokens
+                        (&*self.device, #dtype_tokens)
                     ).lower_equal(#rhs_value)
                 }
             }
             (lhs_ty, ArgType::Shape(_)) if lhs_ty.is_on_device() => {
                 let dtype_tokens = lhs_ty.elem_type().to_tokens();
                 quote! {
-                    #lhs_value.lower_equal(Tensor::<B, 1, burn::tensor::Int>::from_data_dtype(
+                    #lhs_value.lower_equal(Tensor::<B, 1, burn::tensor::Int>::from_data(
                         burn::tensor::TensorData::from(&#rhs_value as &[i64]),
-                        &*self.device,
-                        #dtype_tokens
+                        (&*self.device, #dtype_tokens)
                     ))
                 }
             }
@@ -79,7 +77,7 @@ impl NodeCodegen for onnx_ir::comparison::LessOrEqualNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::comparison::LessOrEqualNodeBuilder;
 
@@ -90,7 +88,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_tensor("lhs", 2, DType::F32)
             .input_tensor("rhs", 2, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 2>, rhs: Tensor<B, 2>) -> Tensor<B, 2, Bool> {
@@ -105,7 +103,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_tensor("lhs", 3, DType::F32)
             .input_tensor("rhs", 2, DType::F32)
-            .output_tensor("output", 3, DType::Bool)
+            .output_tensor("output", 3, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 3>, rhs: Tensor<B, 2>) -> Tensor<B, 3, Bool> {
@@ -120,7 +118,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_tensor("lhs", 2, DType::F32)
             .input_tensor("rhs", 3, DType::F32)
-            .output_tensor("output", 3, DType::Bool)
+            .output_tensor("output", 3, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 2>, rhs: Tensor<B, 3>) -> Tensor<B, 3, Bool> {
@@ -135,7 +133,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_tensor("lhs", 3, DType::F32)
             .input_scalar_tensor("rhs", DType::F32)
-            .output_tensor("output", 3, DType::Bool)
+            .output_tensor("output", 3, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 3>, rhs: Tensor<B, 1>) -> Tensor<B, 3, Bool> {
@@ -150,7 +148,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_scalar_tensor("lhs", DType::F32)
             .input_tensor("rhs", 3, DType::F32)
-            .output_tensor("output", 3, DType::Bool)
+            .output_tensor("output", 3, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 1>, rhs: Tensor<B, 3>) -> Tensor<B, 3, Bool> {
@@ -167,7 +165,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_tensor("lhs", 2, DType::F32)
             .input_scalar("rhs", DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 2>, rhs: f32) -> Tensor<B, 2, Bool> {
@@ -182,7 +180,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_scalar("lhs", DType::F32)
             .input_tensor("rhs", 2, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: f32, rhs: Tensor<B, 2>) -> Tensor<B, 2, Bool> {
@@ -199,7 +197,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_shape("lhs", 4)
             .input_tensor("rhs", 1, DType::I64)
-            .output_tensor("output", 1, DType::Bool)
+            .output_tensor("output", 1, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: [i64; 4], rhs: Tensor<B, 1, Int>) -> Tensor<B, 1, Bool> {
@@ -207,10 +205,9 @@ mod tests {
                 B,
                 1,
                 burn::tensor::Int,
-            >::from_data_dtype(
+            >::from_data(
                     burn::tensor::TensorData::from(&lhs as &[i64]),
-                    &*self.device,
-                    burn::tensor::DType::I64,
+                    (&*self.device, burn::tensor::DType::I64),
                 )
                 .lower_equal(rhs);
             output
@@ -223,7 +220,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_tensor("lhs", 1, DType::I64)
             .input_shape("rhs", 4)
-            .output_tensor("output", 1, DType::Bool)
+            .output_tensor("output", 1, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 1, Int>, rhs: [i64; 4]) -> Tensor<B, 1, Bool> {
@@ -233,10 +230,9 @@ mod tests {
                         B,
                         1,
                         burn::tensor::Int,
-                    >::from_data_dtype(
+                    >::from_data(
                         burn::tensor::TensorData::from(&rhs as &[i64]),
-                        &*self.device,
-                        burn::tensor::DType::I64,
+                        (&*self.device, burn::tensor::DType::I64),
                     ),
                 );
             output
@@ -251,7 +247,7 @@ mod tests {
         let node = LessOrEqualNodeBuilder::new("le1")
             .input_scalar("lhs", DType::F32)
             .input_scalar("rhs", DType::F32)
-            .output_scalar("output", DType::Bool)
+            .output_scalar("output", DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: f32, rhs: f32) -> bool {

@@ -35,7 +35,7 @@ impl NodeCodegen for onnx_ir::node::constant::ConstantNode {
         // For ScalarTensor, embed the actual value in the initializer so Model::new()
         // works without burnpack loading. For regular tensors, use zeros (burnpack loads data).
         // Note: ScalarTensor uses from_data (adopts backend default precision) since these are
-        // Param fields. Boundary conversions in graph.rs use from_data_dtype to preserve the
+        // Param fields. Boundary conversions in graph.rs use from_data to preserve the
         // exact dtype the internal graph expects from user-provided values.
         let (ty, init) = if is_scalar_tensor {
             // Generate initializer with the actual scalar value
@@ -219,7 +219,7 @@ impl NodeCodegen for onnx_ir::node::constant::ConstantNode {
                         let ty = super::super::argument_helpers::scalar_type_tokens(elem_type);
                         quote! { #val as #ty }
                     }
-                    onnx_ir::ir::DType::Bool => {
+                    onnx_ir::ir::DType::Bool(_) => {
                         let val = tensor_data.as_slice::<bool>().unwrap()[0];
                         quote! { #val }
                     }

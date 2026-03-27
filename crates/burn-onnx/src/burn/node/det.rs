@@ -44,10 +44,9 @@ impl NodeCodegen for onnx_ir::node::det::DetNode {
                         let parity = inv_count.remainder_scalar(2i64);
                         let device = det_u.device();
                         let dtype = det_u.dtype();
-                        let sign = Tensor::<B, 1, Float>::from_data_dtype(
+                        let sign = Tensor::<B, 1, Float>::from_data(
                             [1.0f32, -1.0f32],
-                            &device,
-                            dtype,
+                            (&device, dtype,)
                         )
                         .select(0, parity);
                         det_u * sign
@@ -89,10 +88,9 @@ impl NodeCodegen for onnx_ir::node::det::DetNode {
                             let parity = inv_count.remainder_scalar(2i64);
                             let device = det_u.device();
                             let dtype = det_u.dtype();
-                            let sign = Tensor::<B, 1, Float>::from_data_dtype(
+                            let sign = Tensor::<B, 1, Float>::from_data(
                                 [1.0f32, -1.0f32],
-                                &device,
-                                dtype,
+                                (&device, dtype,)
                             )
                             .select(0, parity);
                             dets.push(det_u * sign);
@@ -139,11 +137,7 @@ mod tests {
                 let parity = inv_count.remainder_scalar(2i64);
                 let device = det_u.device();
                 let dtype = det_u.dtype();
-                let sign = Tensor::<
-                    B,
-                    1,
-                    Float,
-                >::from_data_dtype([1.0f32, -1.0f32], &device, dtype)
+                let sign = Tensor::<B, 1, Float>::from_data([1.0f32, -1.0f32], (&device, dtype))
                     .select(0, parity);
                 det_u * sign
             };
@@ -194,7 +188,7 @@ mod tests {
                         B,
                         1,
                         Float,
-                    >::from_data_dtype([1.0f32, -1.0f32], &device, dtype)
+                    >::from_data([1.0f32, -1.0f32], (&device, dtype))
                         .select(0, parity);
                     dets.push(det_u * sign);
                 }

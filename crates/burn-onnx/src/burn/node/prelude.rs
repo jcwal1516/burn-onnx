@@ -24,7 +24,7 @@ pub(crate) use crate::burn::{BurnImports, Field, Scope, ToTokens};
 // Re-export common onnx_ir types
 pub(crate) use onnx_ir::{
     Argument,
-    ir::{ArgType, DType},
+    ir::{ArgType, BoolStore, DType},
 };
 
 // Re-export common proc_macro2 types

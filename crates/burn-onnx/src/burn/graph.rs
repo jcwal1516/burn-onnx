@@ -798,26 +798,23 @@ impl BurnGraph {
                 let dtype_tokens = dtype.to_tokens();
                 if dtype.is_float() {
                     tokens.extend(quote! {
-                        let #name = Tensor::<B, 1>::from_data_dtype(
+                        let #name = Tensor::<B, 1>::from_data(
                             burn::tensor::TensorData::from([#name]),
-                            &*self.device,
-                            #dtype_tokens
+                            (&*self.device, #dtype_tokens)
                         );
                     });
                 } else if dtype.is_int() || dtype.is_uint() {
                     tokens.extend(quote! {
-                        let #name = Tensor::<B, 1, Int>::from_data_dtype(
+                        let #name = Tensor::<B, 1, Int>::from_data(
                             burn::tensor::TensorData::from([#name]),
-                            &*self.device,
-                            #dtype_tokens
+                            (&*self.device, #dtype_tokens)
                         );
                     });
                 } else if dtype.is_bool() {
                     tokens.extend(quote! {
-                        let #name = Tensor::<B, 1, Bool>::from_data_dtype(
+                        let #name = Tensor::<B, 1, Bool>::from_data(
                             burn::tensor::TensorData::from([#name]),
-                            &*self.device,
-                            #dtype_tokens
+                            (&*self.device, #dtype_tokens)
                         );
                     });
                 } else {

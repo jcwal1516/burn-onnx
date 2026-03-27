@@ -182,7 +182,7 @@ impl NodeProcessor for CastProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{Argument, NodeType, TensorType};
+    use crate::ir::{Argument, BoolStore, NodeType, TensorType};
     use crate::node::test_utils::TestNodeBuilder;
     use crate::protos::tensor_proto::DataType;
     use protobuf::Enum;
@@ -230,7 +230,7 @@ mod tests {
         let config = processor.extract_config(&node, 16).unwrap();
         processor.infer_types(&mut node, 16, &prefs).unwrap();
 
-        assert_eq!(config.to, DType::Bool);
+        assert_eq!(config.to, DType::Bool(BoolStore::Native));
     }
 
     #[test]
@@ -262,7 +262,7 @@ mod tests {
 
         match &node.outputs[0].ty {
             ArgType::ScalarNative(elem_type) => {
-                assert_eq!(*elem_type, DType::Bool);
+                assert_eq!(*elem_type, DType::Bool(BoolStore::Native));
             }
             _ => panic!("Expected scalar output for 0-rank tensor"),
         }
@@ -312,7 +312,7 @@ mod tests {
 
         match &node.outputs[0].ty {
             ArgType::ScalarNative(elem_type) => {
-                assert_eq!(*elem_type, DType::Bool);
+                assert_eq!(*elem_type, DType::Bool(BoolStore::Native));
             }
             _ => panic!("Expected scalar output"),
         }
@@ -377,7 +377,7 @@ mod tests {
 
         match &node.outputs[0].ty {
             ArgType::Tensor(tensor) => {
-                assert_eq!(tensor.dtype, DType::Bool);
+                assert_eq!(tensor.dtype, DType::Bool(BoolStore::Native));
                 assert_eq!(tensor.rank, 1);
                 assert_eq!(tensor.static_shape, Some(vec![Some(3)]));
             }

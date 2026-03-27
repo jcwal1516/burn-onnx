@@ -439,7 +439,7 @@ impl ToTokens for DType {
             DType::U16 => quote! { burn::tensor::DType::U16 },
             DType::U32 => quote! { burn::tensor::DType::U32 },
             DType::U64 => quote! { burn::tensor::DType::U64 },
-            DType::Bool => quote! { burn::tensor::DType::Bool },
+            DType::Bool(_) => quote! { burn::tensor::DType::Bool(burn::tensor::BoolStore::Native) },
             // Flex32 and QFloat are Burn-specific runtime types not present in ONNX models
             _ => panic!(
                 "Unsupported dtype for ONNX code generation: {:?}. \

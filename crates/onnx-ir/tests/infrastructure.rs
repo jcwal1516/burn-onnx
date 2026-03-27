@@ -374,7 +374,7 @@ fn test_all_data_types_conversion() {
                         assert_eq!(data[2], 0);
                         println!("I64 [3] validated with correct values");
                     }
-                    (burn_tensor::DType::Bool, [5]) => {
+                    (burn_tensor::DType::Bool(_), [5]) => {
                         let data = tensor_data.iter::<bool>().collect::<Vec<_>>();
                         // [true, false, true, true, false]
                         assert_eq!(data[0], true);
@@ -384,7 +384,7 @@ fn test_all_data_types_conversion() {
                         assert_eq!(data[4], false);
                         println!("Bool [5] validated with correct values");
                     }
-                    (burn_tensor::DType::Bool, [2, 2]) => {
+                    (burn_tensor::DType::Bool(_), [2, 2]) => {
                         let data = tensor_data.iter::<bool>().collect::<Vec<_>>();
                         // [[true, false], [false, true]]
                         assert_eq!(data, vec![true, false, false, true]);
@@ -470,7 +470,7 @@ fn test_all_data_types_conversion() {
         "Missing I64"
     );
     assert!(
-        validated_types.contains(&burn_tensor::DType::Bool),
+        validated_types.contains(&burn_tensor::DType::Bool(burn_tensor::BoolStore::Native)),
         "Missing Bool"
     );
     assert!(

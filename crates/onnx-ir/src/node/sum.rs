@@ -103,7 +103,7 @@ impl NodeProcessor for SumProcessor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ir::{ArgType, Argument, DType, NodeType, TensorType};
+    use crate::ir::{ArgType, Argument, BoolStore, DType, NodeType, TensorType};
 
     #[test]
     fn test_sum_processor_two_inputs() {
@@ -312,7 +312,7 @@ mod tests {
                 Argument {
                     name: "a".to_string(),
                     ty: ArgType::Tensor(TensorType {
-                        dtype: DType::Bool,
+                        dtype: DType::Bool(BoolStore::Native),
                         rank: 1,
                         static_shape: None,
                     }),
@@ -322,7 +322,7 @@ mod tests {
                 Argument {
                     name: "b".to_string(),
                     ty: ArgType::Tensor(TensorType {
-                        dtype: DType::Bool,
+                        dtype: DType::Bool(BoolStore::Native),
                         rank: 1,
                         static_shape: None,
                     }),
@@ -349,7 +349,7 @@ mod tests {
         match result.unwrap_err() {
             ProcessError::TypeMismatch { expected, actual } => {
                 assert_eq!(expected, "Numeric (Float, Int, or UInt)");
-                assert_eq!(actual, "Bool");
+                assert_eq!(actual, "Bool(Native)");
             }
             err => panic!(
                 "Expected TypeMismatch error for non-numeric type, got {:?}",

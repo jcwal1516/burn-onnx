@@ -64,16 +64,16 @@ impl NodeCodegen for onnx_ir::node::or::OrNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::node::or::OrNodeBuilder;
 
     #[test]
     fn test_or_scalar_tensor_forward() {
         let node = OrNodeBuilder::new("or1")
-            .input_scalar("lhs", DType::Bool)
-            .input_tensor("rhs", 4, DType::Bool)
-            .output_tensor("output", 4, DType::Bool)
+            .input_scalar("lhs", DType::Bool(BoolStore::Native))
+            .input_tensor("rhs", 4, DType::Bool(BoolStore::Native))
+            .output_tensor("output", 4, DType::Bool(BoolStore::Native))
             .build();
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
@@ -91,9 +91,9 @@ mod tests {
     #[test]
     fn test_or_tensor_scalar_forward() {
         let node = OrNodeBuilder::new("or1")
-            .input_tensor("lhs", 4, DType::Bool)
-            .input_scalar("rhs", DType::Bool)
-            .output_tensor("output", 4, DType::Bool)
+            .input_tensor("lhs", 4, DType::Bool(BoolStore::Native))
+            .input_scalar("rhs", DType::Bool(BoolStore::Native))
+            .output_tensor("output", 4, DType::Bool(BoolStore::Native))
             .build();
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
@@ -133,9 +133,9 @@ mod tests {
     #[test]
     fn test_or_forward() {
         let node = OrNodeBuilder::new("or1")
-            .input_tensor("lhs", 2, DType::Bool)
-            .input_tensor("rhs", 2, DType::Bool)
-            .output_tensor("output", 2, DType::Bool)
+            .input_tensor("lhs", 2, DType::Bool(BoolStore::Native))
+            .input_tensor("rhs", 2, DType::Bool(BoolStore::Native))
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .build();
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"

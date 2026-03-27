@@ -440,7 +440,7 @@ fn forward_custom(
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::attention::{AttentionConfig, AttentionNodeBuilder, AttentionQkMatmulOutputMode};
 
@@ -773,7 +773,7 @@ mod tests {
             .input_tensor("query", 4, DType::F32)
             .input_tensor("key", 4, DType::F32)
             .input_tensor("value", 4, DType::F32)
-            .input_tensor("mask", 2, DType::Bool)
+            .input_tensor("mask", 2, DType::Bool(BoolStore::Native))
             .output_tensor("output", 4, DType::F32)
             .config(config)
             .build();
@@ -824,7 +824,7 @@ mod tests {
             .input_tensor("query", 4, DType::F32)
             .input_tensor("key", 4, DType::F32)
             .input_tensor("value", 4, DType::F32)
-            .input_tensor("mask", 3, DType::Bool)
+            .input_tensor("mask", 3, DType::Bool(BoolStore::Native))
             .output_tensor("output", 4, DType::F32)
             .config(config)
             .build();
@@ -875,7 +875,7 @@ mod tests {
             .input_tensor("query", 4, DType::F32)
             .input_tensor("key", 4, DType::F32)
             .input_tensor("value", 4, DType::F32)
-            .input_tensor("mask", 2, DType::Bool)
+            .input_tensor("mask", 2, DType::Bool(BoolStore::Native))
             .input_tensor("past_k", 4, DType::F32)
             .input_tensor("past_v", 4, DType::F32)
             .output_tensor("output", 4, DType::F32)

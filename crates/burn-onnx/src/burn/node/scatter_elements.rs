@@ -139,7 +139,7 @@ impl NodeCodegen for onnx_ir::scatter_elements::ScatterElementsNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::scatter_elements::{
         ScatterElementsConfig, ScatterElementsNodeBuilder, ScatterElementsReduction,
@@ -450,10 +450,10 @@ mod tests {
     fn test_scatter_elements_bool_none() {
         let config = ScatterElementsConfig::new(0, ScatterElementsReduction::None);
         let node = ScatterElementsNodeBuilder::new("scatter1")
-            .input_tensor("data", 1, DType::Bool)
+            .input_tensor("data", 1, DType::Bool(BoolStore::Native))
             .input_tensor("indices", 1, DType::I64)
-            .input_tensor("updates", 1, DType::Bool)
-            .output_tensor("output", 1, DType::Bool)
+            .input_tensor("updates", 1, DType::Bool(BoolStore::Native))
+            .output_tensor("output", 1, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -522,10 +522,10 @@ mod tests {
     fn test_scatter_elements_bool_add_panics() {
         let config = ScatterElementsConfig::new(0, ScatterElementsReduction::Add);
         let node = ScatterElementsNodeBuilder::new("scatter1")
-            .input_tensor("data", 1, DType::Bool)
+            .input_tensor("data", 1, DType::Bool(BoolStore::Native))
             .input_tensor("indices", 1, DType::I64)
-            .input_tensor("updates", 1, DType::Bool)
-            .output_tensor("output", 1, DType::Bool)
+            .input_tensor("updates", 1, DType::Bool(BoolStore::Native))
+            .output_tensor("output", 1, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         codegen_forward_default(&node);

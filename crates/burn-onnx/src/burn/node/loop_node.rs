@@ -290,21 +290,21 @@ impl NodeCodegen for onnx_ir::node::loop_node::LoopNode {
                 ArgType::ScalarNative(dtype) => {
                     // Convert Vec<scalar> to 2D tensor with shape [N, 1]
                     // ONNX spec: scan outputs from scalars get an added dimension
-                    // Use from_data_dtype with correct tensor kind to preserve dtype
+                    // Use from_data with correct tensor kind to preserve dtype
                     let dtype_tokens = dtype.to_tokens();
 
                     let tensor_creation = if dtype.is_float() {
                         quote! {
-                            Tensor::<B, 1>::from_data_dtype(data, &*self.device, #dtype_tokens)
+                            Tensor::<B, 1>::from_data(data, (&*self.device, #dtype_tokens))
                         }
                     } else if dtype.is_int() || dtype.is_uint() {
                         quote! {
-                            Tensor::<B, 1, Int>::from_data_dtype(data, &*self.device, #dtype_tokens)
+                            Tensor::<B, 1, Int>::from_data(data, (&*self.device, #dtype_tokens))
                         }
                     } else {
                         // Bool
                         quote! {
-                            Tensor::<B, 1, Bool>::from_data_dtype(data, &*self.device, #dtype_tokens)
+                            Tensor::<B, 1, Bool>::from_data(data, (&*self.device, #dtype_tokens))
                         }
                     };
 

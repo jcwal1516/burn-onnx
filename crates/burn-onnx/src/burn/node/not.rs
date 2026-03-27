@@ -22,15 +22,15 @@ impl NodeCodegen for onnx_ir::node::not::NotNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::node::not::NotNodeBuilder;
 
     #[test]
     fn test_not_forward() {
         let node = NotNodeBuilder::new("not1")
-            .input_tensor("input", 2, DType::Bool)
-            .output_tensor("output", 2, DType::Bool)
+            .input_tensor("input", 2, DType::Bool(BoolStore::Native))
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .build();
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"

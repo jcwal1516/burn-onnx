@@ -53,7 +53,7 @@ impl NodeCodegen for onnx_ir::is_inf::IsInfNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::is_inf::{IsInfConfig, IsInfNodeBuilder};
 
@@ -62,7 +62,7 @@ mod tests {
         let config = IsInfConfig::new(true, true);
         let node = IsInfNodeBuilder::new("isinf1")
             .input_tensor("input", 2, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -79,7 +79,7 @@ mod tests {
         let config = IsInfConfig::new(false, true);
         let node = IsInfNodeBuilder::new("isinf2")
             .input_tensor("input", 2, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -96,7 +96,7 @@ mod tests {
         let config = IsInfConfig::new(true, false);
         let node = IsInfNodeBuilder::new("isinf3")
             .input_tensor("input", 2, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -113,7 +113,7 @@ mod tests {
         let config = IsInfConfig::new(false, false);
         let node = IsInfNodeBuilder::new("isinf4")
             .input_tensor("input", 2, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -130,7 +130,7 @@ mod tests {
         let config = IsInfConfig::new(true, true);
         let node = IsInfNodeBuilder::new("isinf5")
             .input_scalar("input", DType::F32)
-            .output_scalar("output", DType::Bool)
+            .output_scalar("output", DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -147,7 +147,7 @@ mod tests {
         let config = IsInfConfig::new(false, true);
         let node = IsInfNodeBuilder::new("isinf6")
             .input_scalar("input", DType::F32)
-            .output_scalar("output", DType::Bool)
+            .output_scalar("output", DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -164,7 +164,7 @@ mod tests {
         let config = IsInfConfig::new(true, false);
         let node = IsInfNodeBuilder::new("isinf7")
             .input_scalar("input", DType::F32)
-            .output_scalar("output", DType::Bool)
+            .output_scalar("output", DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -181,7 +181,7 @@ mod tests {
         let config = IsInfConfig::new(false, false);
         let node = IsInfNodeBuilder::new("isinf8")
             .input_scalar("input", DType::F32)
-            .output_scalar("output", DType::Bool)
+            .output_scalar("output", DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);

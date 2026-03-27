@@ -341,7 +341,7 @@ impl NodeProcessor for LoopProcessor {
 mod tests {
     use super::*;
     use crate::ir::AttributeValue;
-    use crate::ir::{Argument, NodeType, OnnxGraph, TensorType};
+    use crate::ir::{Argument, BoolStore, NodeType, OnnxGraph, TensorType};
     use crate::node::test_utils::TestNodeBuilder;
     use std::collections::HashMap;
 
@@ -359,7 +359,7 @@ mod tests {
                 // cond_in
                 Argument {
                     name: "cond_in".to_string(),
-                    ty: ArgType::ScalarNative(DType::Bool),
+                    ty: ArgType::ScalarNative(DType::Bool(BoolStore::Native)),
                     value_source: crate::ir::ValueSource::Dynamic,
                     value_store: None,
                 },
@@ -379,7 +379,7 @@ mod tests {
                 // cond_out
                 Argument {
                     name: "cond_out".to_string(),
-                    ty: ArgType::ScalarNative(DType::Bool),
+                    ty: ArgType::ScalarNative(DType::Bool(BoolStore::Native)),
                     value_source: crate::ir::ValueSource::Dynamic,
                     value_store: None,
                 },
@@ -409,7 +409,7 @@ mod tests {
 
         let mut node = TestNodeBuilder::new(NodeType::Loop, "test_loop")
             .input_scalar("M", DType::I64)
-            .input_scalar("cond", DType::Bool)
+            .input_scalar("cond", DType::Bool(BoolStore::Native))
             .input_tensor_f32("v_initial", 2, None)
             .build();
         node.attrs = attrs;
@@ -436,7 +436,7 @@ mod tests {
 
         let mut node = TestNodeBuilder::new(NodeType::Loop, "test_loop")
             .input_tensor_f32("M", 1, None) // Should be scalar, not tensor
-            .input_scalar("cond", DType::Bool)
+            .input_scalar("cond", DType::Bool(BoolStore::Native))
             .input_tensor_f32("v_initial", 2, None)
             .build();
         node.attrs = attrs;

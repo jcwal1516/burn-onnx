@@ -50,10 +50,9 @@ impl NodeCodegen for onnx_ir::comparison::EqualNode {
                 let dtype_tokens = rhs_ty.elem_type().to_tokens();
                 quote! {
                     {
-                        let shape_tensor = Tensor::<B, 1, Int>::from_data_dtype(
+                        let shape_tensor = Tensor::<B, 1, Int>::from_data(
                             burn::tensor::TensorData::from(#lhs_value.as_slice()),
-                            &*self.device,
-                            #dtype_tokens
+                            (&*self.device, #dtype_tokens)
                         );
                         shape_tensor.equal(#rhs_value)
                     }
@@ -63,10 +62,9 @@ impl NodeCodegen for onnx_ir::comparison::EqualNode {
                 let dtype_tokens = lhs_ty.elem_type().to_tokens();
                 quote! {
                     {
-                        let shape_tensor = Tensor::<B, 1, Int>::from_data_dtype(
+                        let shape_tensor = Tensor::<B, 1, Int>::from_data(
                             burn::tensor::TensorData::from(#rhs_value.as_slice()),
-                            &*self.device,
-                            #dtype_tokens
+                            (&*self.device, #dtype_tokens)
                         );
                         #lhs_value.equal(shape_tensor)
                     }
@@ -86,7 +84,7 @@ impl NodeCodegen for onnx_ir::comparison::EqualNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::comparison::EqualNodeBuilder;
 
@@ -97,7 +95,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_tensor("lhs", 2, DType::F32)
             .input_tensor("rhs", 2, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 2>, rhs: Tensor<B, 2>) -> Tensor<B, 2, Bool> {
@@ -112,7 +110,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_tensor("lhs", 3, DType::F32)
             .input_tensor("rhs", 2, DType::F32)
-            .output_tensor("output", 3, DType::Bool)
+            .output_tensor("output", 3, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 3>, rhs: Tensor<B, 2>) -> Tensor<B, 3, Bool> {
@@ -127,7 +125,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_tensor("lhs", 2, DType::F32)
             .input_tensor("rhs", 3, DType::F32)
-            .output_tensor("output", 3, DType::Bool)
+            .output_tensor("output", 3, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 2>, rhs: Tensor<B, 3>) -> Tensor<B, 3, Bool> {
@@ -142,7 +140,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_tensor("lhs", 3, DType::F32)
             .input_scalar_tensor("rhs", DType::F32)
-            .output_tensor("output", 3, DType::Bool)
+            .output_tensor("output", 3, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 3>, rhs: Tensor<B, 1>) -> Tensor<B, 3, Bool> {
@@ -157,7 +155,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_scalar_tensor("lhs", DType::F32)
             .input_tensor("rhs", 3, DType::F32)
-            .output_tensor("output", 3, DType::Bool)
+            .output_tensor("output", 3, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 1>, rhs: Tensor<B, 3>) -> Tensor<B, 3, Bool> {
@@ -172,7 +170,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_scalar_tensor("lhs", DType::F32)
             .input_scalar_tensor("rhs", DType::F32)
-            .output_tensor("output", 1, DType::Bool)
+            .output_tensor("output", 1, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 1>, rhs: Tensor<B, 1>) -> Tensor<B, 1, Bool> {
@@ -189,7 +187,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_tensor("lhs", 2, DType::F32)
             .input_scalar("rhs", DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 2>, rhs: f32) -> Tensor<B, 2, Bool> {
@@ -204,7 +202,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_scalar("lhs", DType::F32)
             .input_tensor("rhs", 2, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: f32, rhs: Tensor<B, 2>) -> Tensor<B, 2, Bool> {
@@ -221,7 +219,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_scalar("lhs", DType::F32)
             .input_scalar("rhs", DType::F32)
-            .output_scalar("output", DType::Bool)
+            .output_scalar("output", DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: f32, rhs: f32) -> bool {
@@ -261,7 +259,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_shape("lhs", 4)
             .input_tensor("rhs", 1, DType::I64)
-            .output_tensor("output", 1, DType::Bool)
+            .output_tensor("output", 1, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: [i64; 4], rhs: Tensor<B, 1, Int>) -> Tensor<B, 1, Bool> {
@@ -270,10 +268,9 @@ mod tests {
                     B,
                     1,
                     Int,
-                >::from_data_dtype(
+                >::from_data(
                     burn::tensor::TensorData::from(lhs.as_slice()),
-                    &*self.device,
-                    burn::tensor::DType::I64,
+                    (&*self.device, burn::tensor::DType::I64),
                 );
                 shape_tensor.equal(rhs)
             };
@@ -287,7 +284,7 @@ mod tests {
         let node = EqualNodeBuilder::new("equal1")
             .input_tensor("lhs", 1, DType::I64)
             .input_shape("rhs", 4)
-            .output_tensor("output", 1, DType::Bool)
+            .output_tensor("output", 1, DType::Bool(BoolStore::Native))
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, lhs: Tensor<B, 1, Int>, rhs: [i64; 4]) -> Tensor<B, 1, Bool> {
@@ -296,10 +293,9 @@ mod tests {
                     B,
                     1,
                     Int,
-                >::from_data_dtype(
+                >::from_data(
                     burn::tensor::TensorData::from(rhs.as_slice()),
-                    &*self.device,
-                    burn::tensor::DType::I64,
+                    (&*self.device, burn::tensor::DType::I64),
                 );
                 lhs.equal(shape_tensor)
             };

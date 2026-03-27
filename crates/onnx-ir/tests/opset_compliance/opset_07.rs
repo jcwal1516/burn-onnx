@@ -42,10 +42,10 @@ fn and_op(graph: &OnnxGraph) {
     insta::assert_snapshot!(format!("{node}"), @r#"
     And "and1"
       Inputs:
-        and_a: Bool[2, 3, 4]
-        and_b: Bool[2, 3, 4]
+        and_a: Bool(Native)[2, 3, 4]
+        and_b: Bool(Native)[2, 3, 4]
       Outputs:
-        and1_out1: Bool[2, 3, 4]
+        and1_out1: Bool(Native)[2, 3, 4]
     "#);
 }
 
@@ -172,7 +172,7 @@ fn equal(graph: &OnnxGraph) {
         equal_a: F32[2, 3, 4]
         equal_b: F32[2, 3, 4]
       Outputs:
-        equal1_out1: Bool[2, 3, 4]
+        equal1_out1: Bool(Native)[2, 3, 4]
     "#);
 }
 
@@ -235,7 +235,7 @@ fn greater(graph: &OnnxGraph) {
         greater_a: F32[2, 3, 4]
         greater_b: F32[2, 3, 4]
       Outputs:
-        greater1_out1: Bool[2, 3, 4]
+        greater1_out1: Bool(Native)[2, 3, 4]
     "#);
 }
 
@@ -278,7 +278,7 @@ fn less(graph: &OnnxGraph) {
         less_a: F32[2, 3, 4]
         less_b: F32[2, 3, 4]
       Outputs:
-        less1_out1: Bool[2, 3, 4]
+        less1_out1: Bool(Native)[2, 3, 4]
     "#);
 }
 
@@ -301,10 +301,10 @@ fn or_op(graph: &OnnxGraph) {
     insta::assert_snapshot!(format!("{node}"), @r#"
     Or "or1"
       Inputs:
-        or_a: Bool[2, 3, 4]
-        or_b: Bool[2, 3, 4]
+        or_a: Bool(Native)[2, 3, 4]
+        or_b: Bool(Native)[2, 3, 4]
       Outputs:
-        or1_out1: Bool[2, 3, 4]
+        or1_out1: Bool(Native)[2, 3, 4]
     "#);
 }
 
@@ -377,9 +377,9 @@ fn xor_op(graph: &OnnxGraph) {
     insta::assert_snapshot!(format!("{node}"), @r#"
     Xor "xor1"
       Inputs:
-        xor_a: Bool[2, 3, 4]
-        xor_b: Bool[2, 3, 4]
+        xor_a: Bool(Native)[2, 3, 4]
+        xor_b: Bool(Native)[2, 3, 4]
       Outputs:
-        xor1_out1: Bool[2, 3, 4]
+        xor1_out1: Bool(Native)[2, 3, 4]
     "#);
 }

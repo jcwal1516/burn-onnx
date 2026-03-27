@@ -55,7 +55,7 @@ pub fn scalar_type_tokens(dtype: &DType) -> TokenStream {
         DType::U16 => quote! { u16 },
         DType::U32 => quote! { u32 },
         DType::U64 => quote! { u64 },
-        DType::Bool => quote! { bool },
+        DType::Bool(_) => quote! { bool },
         _ => panic!("Unsupported scalar dtype: {:?}", dtype),
     }
 }
@@ -156,6 +156,7 @@ pub fn codegen_return_expr(outputs: &[Argument]) -> TokenStream {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use onnx_ir::ir::BoolStore;
 
     #[test]
     fn scalar_type_tokens_float_types() {
@@ -220,7 +221,7 @@ mod tests {
     #[test]
     fn scalar_type_tokens_bool() {
         assert_eq!(
-            scalar_type_tokens(&DType::Bool).to_string(),
+            scalar_type_tokens(&DType::Bool(BoolStore::Native)).to_string(),
             quote!(bool).to_string()
         );
     }

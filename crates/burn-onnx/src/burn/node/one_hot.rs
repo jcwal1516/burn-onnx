@@ -92,7 +92,7 @@ impl NodeCodegen for onnx_ir::one_hot::OneHotNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::one_hot::{OneHotConfig, OneHotDepthInput, OneHotNodeBuilder, OneHotValuesInput};
 
@@ -195,7 +195,7 @@ mod tests {
         );
         let node = OneHotNodeBuilder::new("onehot5")
             .input_tensor("indices", 1, DType::I32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -216,7 +216,7 @@ mod tests {
         );
         let node = OneHotNodeBuilder::new("onehot6")
             .input_tensor("indices", 1, DType::F32)
-            .output_tensor("output", 2, DType::Bool)
+            .output_tensor("output", 2, DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);

@@ -26,7 +26,7 @@ impl NodeCodegen for onnx_ir::concat::ConcatNode {
                     let dtype = self.inputs[0].ty.elem_type();
                     let dtype_tokens = dtype.to_tokens();
                     let kind = match dtype {
-                        DType::Bool => quote! { , Bool },
+                        DType::Bool(_) => quote! { , Bool },
                         _ if dtype.is_float() => quote! {},
                         _ => quote! { , Int },
                     };
@@ -34,10 +34,9 @@ impl NodeCodegen for onnx_ir::concat::ConcatNode {
                         self.inputs.iter().map(|arg| scope.arg(arg)).collect();
 
                     quote! {
-                        let #output: Tensor<B, 1 #kind> = Tensor::from_data_dtype(
+                        let #output: Tensor<B, 1 #kind> = Tensor::from_data(
                             burn::tensor::TensorData::from([#(#scalar_inputs),*]),
-                            &*self.device,
-                            #dtype_tokens
+                            (&*self.device, #dtype_tokens)
                         );
                     }
                 } else {
@@ -52,17 +51,16 @@ impl NodeCodegen for onnx_ir::concat::ConcatNode {
                             let dtype = input_arg.ty.elem_type();
                             let dtype_tokens = dtype.to_tokens();
                             let kind = match dtype {
-                                DType::Bool => quote! { , Bool },
+                                DType::Bool(_) => quote! { , Bool },
                                 _ if dtype.is_float() => quote! {},
                                 _ => quote! { , Int },
                             };
                             let temp_name =
                                 Ident::new(&format!("scalar_as_tensor_{}", i), Span::call_site());
                             let init = quote! {
-                                let #temp_name: Tensor<B, 1 #kind> = Tensor::from_data_dtype(
+                                let #temp_name: Tensor<B, 1 #kind> = Tensor::from_data(
                                     burn::tensor::TensorData::from([#input]),
-                                    &*self.device,
-                                    #dtype_tokens
+                                    (&*self.device, #dtype_tokens)
                                 );
                             };
                             inits.push(init);
@@ -183,10 +181,9 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self, s0: i64, s1: i64) -> Tensor<B, 1, Int> {
-            let output: Tensor<B, 1, Int> = Tensor::from_data_dtype(
+            let output: Tensor<B, 1, Int> = Tensor::from_data(
                 burn::tensor::TensorData::from([s0, s1]),
-                &*self.device,
-                burn::tensor::DType::I64,
+                (&*self.device, burn::tensor::DType::I64),
             );
             output
         }
@@ -206,10 +203,9 @@ mod tests {
         assert_snapshot!(code, @r"
         pub fn forward(&self, s0: f32, t0: Tensor<B, 1>) -> Tensor<B, 1> {
             let output = {
-                let scalar_as_tensor_0: Tensor<B, 1> = Tensor::from_data_dtype(
+                let scalar_as_tensor_0: Tensor<B, 1> = Tensor::from_data(
                     burn::tensor::TensorData::from([s0]),
-                    &*self.device,
-                    burn::tensor::DType::F32,
+                    (&*self.device, burn::tensor::DType::F32),
                 );
                 burn::tensor::Tensor::cat([scalar_as_tensor_0, t0].into(), 0)
             };

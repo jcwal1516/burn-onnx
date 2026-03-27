@@ -117,7 +117,7 @@ macro_rules! impl_reduce_node {
                 // Get input rank and check if it's boolean
                 let (input_rank, is_bool) = match &input_arg.ty {
                     onnx_ir::ir::ArgType::Tensor(tensor) => {
-                        (tensor.rank, tensor.dtype == onnx_ir::ir::DType::Bool)
+                        (tensor.rank, tensor.dtype.is_bool())
                     }
                     _ => panic!("Reduce node input must be a tensor"),
                 };

@@ -46,7 +46,7 @@
 
 use onnx_ir_derive::NodeBuilder;
 
-use crate::ir::{Argument, DType, Node, RawNode};
+use crate::ir::{Argument, BoolStore, DType, Node, RawNode};
 use crate::processor::{
     ArgPreference, InputPreferences, InputSpec, NodeProcessor, NodeSpec, OutputPreferences,
     OutputSpec, ProcessError,
@@ -94,7 +94,8 @@ pub struct LessOrEqualNode {
 
 /// Update output type for comparison operations (e.g., Equal, Greater) to max input rank.
 pub(crate) fn elementwise_comparison_outputs(node: &mut RawNode) {
-    node.outputs[0].ty = crate::processor::broadcast_output_type(&node.inputs, Some(DType::Bool));
+    node.outputs[0].ty =
+        crate::processor::broadcast_output_type(&node.inputs, Some(DType::Bool(BoolStore::Native)));
 }
 
 pub(crate) struct ComparisonProcessor;
@@ -169,8 +170,10 @@ impl NodeProcessor for ComparisonProcessor {
             });
         }
 
-        node.outputs[0].ty =
-            crate::processor::broadcast_output_type(&node.inputs, Some(DType::Bool));
+        node.outputs[0].ty = crate::processor::broadcast_output_type(
+            &node.inputs,
+            Some(DType::Bool(BoolStore::Native)),
+        );
 
         Ok(())
     }
@@ -231,7 +234,7 @@ mod tests {
 
         match &node.outputs[0].ty {
             ArgType::Tensor(tensor) => {
-                assert_eq!(tensor.dtype, DType::Bool);
+                assert_eq!(tensor.dtype, DType::Bool(BoolStore::Native));
                 assert_eq!(tensor.rank, 3); // max(2, 3) = 3
             }
             _ => panic!("Expected tensor output"),
@@ -252,7 +255,7 @@ mod tests {
 
         match &node.outputs[0].ty {
             ArgType::ScalarNative(elem_type) => {
-                assert_eq!(*elem_type, DType::Bool);
+                assert_eq!(*elem_type, DType::Bool(BoolStore::Native));
             }
             _ => panic!("Expected scalar output"),
         }
@@ -270,7 +273,7 @@ mod tests {
 
         match &node.outputs[0].ty {
             ArgType::Tensor(tensor) => {
-                assert_eq!(tensor.dtype, DType::Bool);
+                assert_eq!(tensor.dtype, DType::Bool(BoolStore::Native));
                 assert_eq!(tensor.rank, 2); // max(1, 2) = 2 (Shape is rank 1, Tensor is rank 2)
             }
             _ => panic!("Expected tensor output"),

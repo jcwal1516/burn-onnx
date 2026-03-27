@@ -40,7 +40,7 @@ impl NodeCodegen for onnx_ir::reshape::ReshapeNode {
                                     DType::F64 => quote! { .elem::<f64>() },
                                     DType::I32 => quote! { .elem::<i32>() },
                                     DType::I64 => quote! { .elem::<i64>() },
-                                    DType::Bool => quote! { .elem::<bool>() },
+                                    DType::Bool(_) => quote! { .elem::<bool>() },
                                     _ => panic!("Unsupported scalar type: {:?}", elem_type),
                                 };
                                 quote! {
@@ -113,10 +113,9 @@ impl NodeCodegen for onnx_ir::reshape::ReshapeNode {
                                 quote! {
                                     let #output = {
                                         let shape_array = #input_name as [i64; #input_rank];
-                                        Tensor::<B, 1, Int>::from_data_dtype(
+                                        Tensor::<B, 1, Int>::from_data(
                                             TensorData::from(shape_array),
-                                            &self.device,
-                                            #dtype_tokens
+                                            (&*self.device, #dtype_tokens)
                                         )
                                     }.reshape(#shape_values);
                                 }
@@ -137,19 +136,17 @@ impl NodeCodegen for onnx_ir::reshape::ReshapeNode {
 
                                 if tensor_type.dtype.is_float() {
                                     quote! {
-                                        let #output = Tensor::<B, #output_rank>::from_data_dtype(
+                                        let #output = Tensor::<B, #output_rank>::from_data(
                                             burn::tensor::TensorData::from([#input_name as f64]),
-                                            &*self.device,
-                                            #dtype_tokens
+                                            (&*self.device, #dtype_tokens)
                                         ).reshape(#shape_values);
                                     }
                                 } else if tensor_type.dtype.is_int() || tensor_type.dtype.is_uint()
                                 {
                                     quote! {
-                                        let #output = Tensor::<B, #output_rank, Int>::from_data_dtype(
+                                        let #output = Tensor::<B, #output_rank, Int>::from_data(
                                             burn::tensor::TensorData::from([#input_name as i64]),
-                                            &*self.device,
-                                            #dtype_tokens
+                                            (&*self.device, #dtype_tokens)
                                         ).reshape(#shape_values);
                                     }
                                 } else {
@@ -160,10 +157,9 @@ impl NodeCodegen for onnx_ir::reshape::ReshapeNode {
                                         quote! { #input_name != 0 }
                                     };
                                     quote! {
-                                        let #output = Tensor::<B, #output_rank, Bool>::from_data_dtype(
+                                        let #output = Tensor::<B, #output_rank, Bool>::from_data(
                                             burn::tensor::TensorData::from([#bool_expr]),
-                                            &*self.device,
-                                            #dtype_tokens
+                                            (&*self.device, #dtype_tokens)
                                         ).reshape(#shape_values);
                                     }
                                 }
@@ -264,7 +260,7 @@ impl NodeCodegen for onnx_ir::reshape::ReshapeNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::ir::RuntimeInputRef;
     use onnx_ir::reshape::{ReshapeConfig, ReshapeInput, ReshapeNodeBuilder};
@@ -410,8 +406,8 @@ mod tests {
             shape: ReshapeInput::Static(vec![]),
         };
         let node = ReshapeNodeBuilder::new("reshape1")
-            .input_tensor("mask", 1, DType::Bool)
-            .output_scalar("flag", DType::Bool)
+            .input_tensor("mask", 1, DType::Bool(BoolStore::Native))
+            .output_scalar("flag", DType::Bool(BoolStore::Native))
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
@@ -551,10 +547,9 @@ mod tests {
                     B,
                     1,
                     Int,
-                >::from_data_dtype(
+                >::from_data(
                     TensorData::from(shape_array),
-                    &self.device,
-                    burn::tensor::DType::I64,
+                    (&*self.device, burn::tensor::DType::I64),
                 )
             }
                 .reshape([3]);
@@ -698,10 +693,9 @@ mod tests {
                 B,
                 1usize,
                 Int,
-            >::from_data_dtype(
+            >::from_data(
                     burn::tensor::TensorData::from([value as i64]),
-                    &*self.device,
-                    burn::tensor::DType::I64,
+                    (&*self.device, burn::tensor::DType::I64),
                 )
                 .reshape([-1]);
             tensor_out
@@ -725,10 +719,9 @@ mod tests {
             let out = Tensor::<
                 B,
                 1usize,
-            >::from_data_dtype(
+            >::from_data(
                     burn::tensor::TensorData::from([val as f64]),
-                    &*self.device,
-                    burn::tensor::DType::F32,
+                    (&*self.device, burn::tensor::DType::F32),
                 )
                 .reshape([1]);
             out

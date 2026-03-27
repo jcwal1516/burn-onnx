@@ -78,18 +78,16 @@ impl NodeCodegen for onnx_ir::modulo::ModNode {
                 if rhs_rank > 1 {
                     let dims: Vec<isize> = (0..rhs_rank - 1).map(|i| i as isize).collect();
                     quote! {
-                        let #output = #tensor_type::from_data_dtype(
+                        let #output = #tensor_type::from_data(
                             burn::tensor::TensorData::from([#lhs as #cast_as]),
-                            &*self.device,
-                            #dtype_tokens
+                            (&*self.device, #dtype_tokens)
                         ).unsqueeze_dims(&[#(#dims),*]).#mod_op(#rhs);
                     }
                 } else {
                     quote! {
-                        let #output = #tensor_type::from_data_dtype(
+                        let #output = #tensor_type::from_data(
                             burn::tensor::TensorData::from([#lhs as #cast_as]),
-                            &*self.device,
-                            #dtype_tokens
+                            (&*self.device, #dtype_tokens)
                         ).#mod_op(#rhs);
                     }
                 }
@@ -320,10 +318,9 @@ mod tests {
             let output = Tensor::<
                 B,
                 1,
-            >::from_data_dtype(
+            >::from_data(
                     burn::tensor::TensorData::from([a as f64]),
-                    &*self.device,
-                    burn::tensor::DType::F32,
+                    (&*self.device, burn::tensor::DType::F32),
                 )
                 .unsqueeze_dims(&[0isize])
                 .remainder(b);
@@ -346,10 +343,9 @@ mod tests {
             let output = Tensor::<
                 B,
                 1,
-            >::from_data_dtype(
+            >::from_data(
                     burn::tensor::TensorData::from([a as f64]),
-                    &*self.device,
-                    burn::tensor::DType::F32,
+                    (&*self.device, burn::tensor::DType::F32),
                 )
                 .unsqueeze_dims(&[0isize])
                 .fmod(b);

@@ -14,13 +14,13 @@ mod tests {
 
     // Helper to create i32 tensor from nested arrays
     // The ONNX MatMulInteger model uses I32 constants, so we need i32 tensors.
-    // We use from_data_dtype to preserve I32 dtype (from_data converts to backend's IntElem which is i64).
+    // We use from_data with dtype to preserve I32 dtype (from_data without dtype converts to backend's IntElem which is i64).
     fn tensor_2d_i32<const R: usize, const C: usize>(
         data: [[i32; C]; R],
         device: &<TestBackend as burn::tensor::backend::Backend>::Device,
     ) -> Tensor<TestBackend, 2, Int> {
         let tensor_data = TensorData::from(data);
-        Tensor::from_data_dtype(tensor_data, device, DType::I32)
+        Tensor::from_data(tensor_data, (device, DType::I32))
     }
 
     fn tensor_3d_i32<const B: usize, const R: usize, const C: usize>(
@@ -28,7 +28,7 @@ mod tests {
         device: &<TestBackend as burn::tensor::backend::Backend>::Device,
     ) -> Tensor<TestBackend, 3, Int> {
         let tensor_data = TensorData::from(data);
-        Tensor::from_data_dtype(tensor_data, device, DType::I32)
+        Tensor::from_data(tensor_data, (device, DType::I32))
     }
 
     fn tensor_1d_i32<const N: usize>(
@@ -36,7 +36,7 @@ mod tests {
         device: &<TestBackend as burn::tensor::backend::Backend>::Device,
     ) -> Tensor<TestBackend, 1, Int> {
         let tensor_data = TensorData::from(data);
-        Tensor::from_data_dtype(tensor_data, device, DType::I32)
+        Tensor::from_data(tensor_data, (device, DType::I32))
     }
 
     // Simple no-zero-point case: check integer matmul → int32 result

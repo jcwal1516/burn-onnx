@@ -264,7 +264,7 @@ fn equal(graph: &OnnxGraph) {
         equal_a: F32[2, 3, 4]
         equal_b: F32[2, 3, 4]
       Outputs:
-        equal1_out1: Bool[2, 3, 4]
+        equal1_out1: Bool(Native)[2, 3, 4]
     "#);
 }
 
@@ -388,7 +388,7 @@ fn if_op(graph: &OnnxGraph) {
     insta::assert_snapshot!(format!("{node}"), @r#"
     If "if1"
       Inputs:
-        if_condition: ScalarNative(Bool)
+        if_condition: ScalarNative(Bool(Native))
       Outputs:
         if1_out1: F32[2, 3]
       Config:

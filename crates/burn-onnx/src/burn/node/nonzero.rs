@@ -48,7 +48,7 @@ impl NodeCodegen for onnx_ir::nonzero::NonZeroNode {
 #[cfg(test)]
 mod tests {
     use super::super::test_helpers::*;
-    use burn::tensor::DType;
+    use burn::tensor::{BoolStore, DType};
     use insta::assert_snapshot;
     use onnx_ir::nonzero::NonZeroNodeBuilder;
 
@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn test_nonzero_bool() {
         let node = NonZeroNodeBuilder::new("nz3")
-            .input_tensor("input", 2, DType::Bool)
+            .input_tensor("input", 2, DType::Bool(BoolStore::Native))
             .output_tensor("output", 2, DType::I64)
             .build();
         let code = codegen_forward_default(&node);
