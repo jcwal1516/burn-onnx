@@ -53,7 +53,6 @@ define_placeholder_node! {
     DftNode,
     DequantizeLinearNode,
     DynamicQuantizeLinearNode,
-    EinsumNode,
     GlobalMaxPoolNode,
     HammingWindowNode,
     HannWindowNode,

@@ -12,26 +12,27 @@ use quote::quote;
 
 use crate::burn::ToTokens;
 
+/// Get the type TokenStream for a tensor rank and DType.
+pub fn tensor_type_tokens(rank: usize, dtype: &DType) -> TokenStream {
+    let rank = rank.to_tokens();
+    match dtype {
+        dtype if dtype.is_float() => quote! { Tensor<B, #rank> },
+        dtype if dtype.is_int() || dtype.is_uint() => quote! { Tensor<B, #rank, Int> },
+        dtype if dtype.is_bool() => quote! { Tensor<B, #rank, Bool> },
+        _ => panic!("Unsupported tensor dtype: {:?}", dtype),
+    }
+}
+
 /// Get the type TokenStream for an argument
 pub fn arg_type_tokens(arg: &Argument) -> TokenStream {
     match &arg.ty {
-        ArgType::Tensor(tensor) => {
-            let rank = tensor.rank.to_tokens();
-            match &tensor.dtype {
-                dtype if dtype.is_float() => quote! { Tensor<B, #rank> },
-                dtype if dtype.is_int() || dtype.is_uint() => {
-                    quote! { Tensor<B, #rank, Int> }
-                }
-                dtype if dtype.is_bool() => quote! { Tensor<B, #rank, Bool> },
-                _ => quote! { Tensor<B, #rank> },
-            }
-        }
+        ArgType::Tensor(tensor) => tensor_type_tokens(tensor.rank, &tensor.dtype),
         ArgType::ScalarNative(dtype) => scalar_type_tokens(dtype),
         ArgType::ScalarTensor(dtype) => match dtype {
             d if d.is_float() => quote! { Tensor<B, 1> },
             d if d.is_int() || d.is_uint() => quote! { Tensor<B, 1, Int> },
             d if d.is_bool() => quote! { Tensor<B, 1, Bool> },
-            _ => quote! { Tensor<B, 1> },
+            _ => panic!("Unsupported scalar tensor dtype: {:?}", dtype),
         },
         ArgType::Shape(rank) => {
             let rank_lit = rank.to_tokens();
@@ -157,6 +158,22 @@ pub fn codegen_return_expr(outputs: &[Argument]) -> TokenStream {
 mod tests {
     use super::*;
     use onnx_ir::ir::BoolStore;
+
+    #[test]
+    fn tensor_type_tokens_preserves_tensor_kind() {
+        assert_eq!(
+            tensor_type_tokens(3, &DType::F32).to_string(),
+            quote!(Tensor<B, 3>).to_string()
+        );
+        assert_eq!(
+            tensor_type_tokens(3, &DType::I32).to_string(),
+            quote!(Tensor<B, 3, Int>).to_string()
+        );
+        assert_eq!(
+            tensor_type_tokens(3, &DType::Bool).to_string(),
+            quote!(Tensor<B, 3, Bool>).to_string()
+        );
+    }
 
     #[test]
     fn scalar_type_tokens_float_types() {

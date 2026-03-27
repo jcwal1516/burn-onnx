@@ -62,7 +62,7 @@ functionality.
 | [Div][46]                        | ✅             | ✅           |
 | [Dropout][47]                    | ✅             | ✅           |
 | [DynamicQuantizeLinear][48]      | ❌             | ❌           |
-| [Einsum][49]                     | ❌             | ❌           |
+| [Einsum][49]                     | ✅             | ✅           |
 | [Elu][50]                        | ✅             | ✅           |
 | [Equal][51]                      | ✅             | ✅           |
 | [Erf][52]                        | ✅             | ✅           |
