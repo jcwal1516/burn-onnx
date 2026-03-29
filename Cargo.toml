@@ -32,7 +32,7 @@ exclude = [
 edition = "2024"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-version = "0.21.0-pre.1"
+version = "0.21.0-pre.2"
 
 [workspace.lints.clippy]
 
@@ -44,13 +44,13 @@ invalid_html_tags = "deny"
 bytemuck = "1.25.0"
 derive-new = { version = "0.7.0", default-features = false }
 float-cmp = "0.10.0"
-insta = "1.45.0"
+insta = "1.47.0"
 log = { default-features = false, version = "0.4.29" }
 proc-macro2 = "1.0.106"
 quote = "1.0.45"
 rust-format = "0.3.4"
 tracing-core = { version = "0.1.36", default-features = false }
-tracing-subscriber = "0.3.20"
+tracing-subscriber = "0.3.23"
 syn = { version = "2.0.117", features = ["full", "extra-traits"] }
 
 # onnx-ir
@@ -74,10 +74,10 @@ strum = { version = "0.28.0", features = ["derive"] }
 bytes = { version = "1.11.1", default-features = false }
 memmap2 = { version = "0.9" }
 
-burn = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "fa9f6815d1d03e3e54aaec67786b51a51c8bb55c" }
-burn-ndarray = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "fa9f6815d1d03e3e54aaec67786b51a51c8bb55c" }
-burn-store = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "fa9f6815d1d03e3e54aaec67786b51a51c8bb55c" }
-burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "fa9f6815d1d03e3e54aaec67786b51a51c8bb55c" }
+burn = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "ed72d2b125a364aff18aed2a53396c128e01cb42" }
+burn-ndarray = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "ed72d2b125a364aff18aed2a53396c128e01cb42" }
+burn-store = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "ed72d2b125a364aff18aed2a53396c128e01cb42" }
+burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "ed72d2b125a364aff18aed2a53396c128e01cb42" }
 
 ### For local development. ###
 # burn = { path = "../burn/crates/burn", default-features = false }
@@ -86,13 +86,13 @@ burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = fa
 # burn-tensor = { path = "../burn/crates/burn-tensor", default-features = false }
 
 ### For the release. ###
-# burn = { version = "0.21.0-pre.1", default-features = false }
-# burn-ndarray = { version = "0.21.0-pre.1", default-features = false }
-# burn-store = { version = "0.21.0-pre.1", default-features = false }
-# burn-tensor = { version = "0.21.0-pre.1", default-features = false }
+# burn = { version = "0.21.0-pre.2", default-features = false }
+# burn-ndarray = { version = "0.21.0-pre.2", default-features = false }
+# burn-store = { version = "0.21.0-pre.2", default-features = false }
+# burn-tensor = { version = "0.21.0-pre.2", default-features = false }
 
 ### For xtask crate ###
-tracel-xtask = "=4.13.4"
+tracel-xtask = "=4.15.0"
 # ### For local development. ###
 # tracel-xtask = { path = "../xtask/crates/tracel-xtask", default-features = false }
 

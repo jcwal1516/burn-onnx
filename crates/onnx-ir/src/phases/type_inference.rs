@@ -119,7 +119,14 @@ pub(super) fn iterative_type_inference_with_preferences(
             crate::processor::validate_node_spec(&nodes[i], opset, &spec)?;
 
             // Run type inference on this node
-            processor.infer_types(&mut nodes[i], opset, &prefs)?;
+            processor
+                .infer_types(&mut nodes[i], opset, &prefs)
+                .map_err(|e| {
+                    ProcessError::Custom(format!(
+                        "Node '{}' ({}): {}",
+                        nodes[i].name, nodes[i].node_type, e
+                    ))
+                })?;
 
             // Validate that no rank-0 tensors were created (invariant: should be Scalars)
             crate::processor::validate_no_rank_zero_tensors(&nodes[i])?;

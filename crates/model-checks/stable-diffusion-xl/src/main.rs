@@ -2,6 +2,7 @@ extern crate alloc;
 
 use burn::module::{Initializer, Param};
 use burn::prelude::*;
+use burn::tensor::DType;
 
 use burn_store::{ModuleSnapshot, PytorchStore};
 use std::time::Instant;

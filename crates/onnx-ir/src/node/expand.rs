@@ -84,11 +84,8 @@ impl NodeProcessor for ExpandProcessor {
             ArgType::Shape(_) => {
                 // Shapes are always 1-D int64 data, so nothing to validate here
             }
-            _ => {
-                return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
-                    actual: format!("{:?}", node.inputs[1].ty),
-                });
+            ArgType::ScalarTensor(_) | ArgType::ScalarNative(_) => {
+                // Scalar shape means expanding to rank 0 (scalar output)
             }
         }
 
@@ -114,15 +111,22 @@ impl NodeProcessor for ExpandProcessor {
             ExpandConfig::Static(shape) => {
                 // TODO: Validate shape values are positive or -1 per ONNX spec - Negative values other than -1 are invalid - Missing constraint validation
                 // TODO: Validate broadcasting rules - Per spec, input shape and target shape must be compatible for broadcasting - Missing broadcast validation
-                node.outputs[0].ty = ArgType::Tensor(TensorType {
-                    dtype: input_elem_type,
-                    rank: shape.len(),
-                    static_shape: Some(shape.iter().map(|&dim| Some(dim as usize)).collect()),
-                });
+                if shape.is_empty() {
+                    // Empty shape means scalar output
+                    node.outputs[0].ty = ArgType::ScalarTensor(input_elem_type);
+                } else {
+                    node.outputs[0].ty = ArgType::Tensor(TensorType {
+                        dtype: input_elem_type,
+                        rank: shape.len(),
+                        static_shape: Some(shape.iter().map(|&dim| Some(dim as usize)).collect()),
+                    });
+                }
             }
             ExpandConfig::Runtime(_) => {
                 // When the shape cannot be determined statically, infer the rank from the shape input
                 let output_rank = match &node.inputs[1].ty {
+                    // Scalar shape input means expanding to a scalar (rank 0)
+                    ArgType::ScalarTensor(_) | ArgType::ScalarNative(_) => 0,
                     ArgType::Shape(rank) => *rank,
                     ArgType::Tensor(tensor) => {
                         if let Some(static_shape) = &tensor.static_shape
@@ -154,19 +158,17 @@ impl NodeProcessor for ExpandProcessor {
                             }
                         }
                     }
-                    _ => {
-                        return Err(ProcessError::TypeMismatch {
-                            expected: "Tensor or Shape".to_string(),
-                            actual: format!("{:?}", node.inputs[1].ty),
-                        });
-                    }
                 };
 
-                node.outputs[0].ty = ArgType::Tensor(TensorType {
-                    dtype: input_elem_type,
-                    rank: output_rank,
-                    static_shape: None,
-                });
+                if output_rank == 0 {
+                    node.outputs[0].ty = ArgType::ScalarTensor(input_elem_type);
+                } else {
+                    node.outputs[0].ty = ArgType::Tensor(TensorType {
+                        dtype: input_elem_type,
+                        rank: output_rank,
+                        static_shape: None,
+                    });
+                }
             }
         }
 
@@ -388,15 +390,16 @@ mod tests {
     }
 
     #[test]
-    fn test_expand_config_with_invalid_input_type() {
-        let invalid_shape_type = ArgType::ScalarNative(DType::I64);
-        let node = create_test_node(2, None, Some(invalid_shape_type)).build();
+    fn test_expand_scalar_native_shape_outputs_scalar() {
+        // ScalarNative shape input means expanding to rank 0
+        let shape_type = ArgType::ScalarNative(DType::I64);
+        let node = create_test_node(2, None, Some(shape_type)).build();
         let mut node = node;
         let processor = ExpandProcessor;
         let prefs = OutputPreferences::new();
-        let _config = processor.extract_config(&node, 16).unwrap();
-        let result = processor.infer_types(&mut node, 16, &prefs);
-        assert!(matches!(result, Err(ProcessError::TypeMismatch { .. })));
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        assert_eq!(node.outputs[0].ty, ArgType::ScalarTensor(DType::F32));
     }
 
     #[test]
@@ -727,6 +730,22 @@ mod tests {
         let prefs = OutputPreferences::new();
         let result = processor.infer_types(&mut node, 16, &prefs);
         assert!(matches!(result, Err(ProcessError::Custom(_))));
+    }
+
+    #[test]
+    fn test_expand_static_empty_shape_outputs_scalar() {
+        // Expanding with an empty shape [] produces a scalar output
+        let mut node = TestNodeBuilder::new(NodeType::Expand, "test_expand")
+            .input_scalar_f32("input")
+            .input_tensor_i64_data("shape", vec![], vec![0])
+            .output_tensor_f32("output", 0, None)
+            .build_with_graph_data(16);
+
+        let processor = ExpandProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        assert_eq!(node.outputs[0].ty, ArgType::ScalarTensor(DType::F32));
     }
 
     // TODO: Add test for invalid shape values - Test negative values other than -1 (e.g., -2, -3) should return error - Missing constraint validation test
