@@ -170,7 +170,7 @@ mod tests {
             quote!(Tensor<B, 3, Int>).to_string()
         );
         assert_eq!(
-            tensor_type_tokens(3, &DType::Bool).to_string(),
+            tensor_type_tokens(3, &DType::Bool(BoolStore::Native)).to_string(),
             quote!(Tensor<B, 3, Bool>).to_string()
         );
     }
