@@ -7,7 +7,8 @@ include_models!(
     expand_shape,
     expand_with_where_shape,
     expand_max_semantics,
-    expand_dynamic_where
+    expand_dynamic_where,
+    expand_shape_as_data
 );
 
 #[cfg(test)]
@@ -113,6 +114,22 @@ mod tests {
         let expected_shape = Shape::from([3]);
         assert_eq!(output.shape(), expected_shape);
         output.into_data().assert_eq(&input_data.into_data(), true);
+    }
+
+    #[test]
+    fn expand_shape_as_data() {
+        // Tests issue #266: Shape node output used as Expand's data input (input[0]).
+        // Shape([3,4]) -> [3, 4] int64, Expand([3,4], [2,2]) -> [[3,4],[3,4]]
+        let device = Default::default();
+        let model: expand_shape_as_data::Model<TestBackend> =
+            expand_shape_as_data::Model::new(&device);
+
+        let input = Tensor::<TestBackend, 2>::zeros([3, 4], &device);
+        let output = model.forward(input);
+
+        assert_eq!(output.shape(), Shape::from([2, 2]));
+        let expected = Tensor::<TestBackend, 2, Int>::from_ints([[3, 4], [3, 4]], &device);
+        output.into_data().assert_eq(&expected.into_data(), true);
     }
 
     #[test]

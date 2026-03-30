@@ -194,6 +194,7 @@ fn add_all_inputs(model_gen: &mut ModelGen) {
         .input("tests/expand/expand_with_where_shape.onnx")
         .input("tests/expand/expand_max_semantics.onnx")
         .input("tests/expand/expand_dynamic_where.onnx")
+        .input("tests/expand/expand_shape_as_data.onnx")
         .input("tests/eye_like/eye_like.onnx")
         .input("tests/eye_like/eye_like_k1.onnx")
         .input("tests/eye_like/eye_like_int.onnx")

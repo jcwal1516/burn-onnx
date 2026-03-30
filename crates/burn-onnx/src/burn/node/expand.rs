@@ -39,6 +39,30 @@ impl NodeCodegen for onnx_ir::expand::ExpandNode {
             }
         };
 
+        // For Shape inputs, convert [i64; N] array to a 1D Int tensor and expand.
+        if let ArgType::Shape(shape_rank) = &input_arg.ty {
+            let shape_rank = shape_rank.to_tokens();
+            return quote! {
+                let #output = {
+                    let onnx_shape: [i64; #output_rank] = #shape;
+                    let input_tensor = Tensor::<B, 1, Int>::from_data(
+                        burn::tensor::TensorData::from(#input.as_slice()),
+                        (&*self.device, burn::tensor::DType::I64)
+                    );
+                    let input_dims = [#shape_rank];
+                    let mut shape = onnx_shape;
+                    #[allow(clippy::needless_range_loop)]
+                    for i in 0..1usize {
+                        let dim_offset = #output_rank - 1usize + i;
+                        if shape[dim_offset] == 1 && input_dims[i] > 1 {
+                            shape[dim_offset] = input_dims[i] as i64;
+                        }
+                    }
+                    input_tensor.expand(shape)
+                };
+            };
+        }
+
         // For scalar inputs, materialize as rank-1 tensor and expand directly.
         // No max-semantics loop needed since a scalar always has dim [1].
         if input_arg.ty.is_scalar() {
@@ -220,6 +244,45 @@ mod tests {
                     (&*self.device, burn::tensor::DType::Bool(burn::tensor::BoolStore::Native)),
                 );
                 input.expand([2, 3])
+            };
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_expand_shape_as_data() {
+        // Shape input (1D int64 array) expanded to a target shape.
+        // This pattern occurs in piper-tts/VITS (issue #266).
+        let config = ExpandConfig::Static(vec![2, 2]);
+        let node = ExpandNodeBuilder::new("expand1")
+            .input_shape("shape_out", 2)
+            .output_tensor("output", 2, DType::I64)
+            .config(config)
+            .build();
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, shape_out: [i64; 2]) -> Tensor<B, 2, Int> {
+            let output = {
+                let onnx_shape: [i64; 2usize] = [2, 2];
+                let input_tensor = Tensor::<
+                    B,
+                    1,
+                    Int,
+                >::from_data(
+                    burn::tensor::TensorData::from(shape_out.as_slice()),
+                    (&*self.device, burn::tensor::DType::I64),
+                );
+                let input_dims = [2];
+                let mut shape = onnx_shape;
+                #[allow(clippy::needless_range_loop)]
+                for i in 0..1usize {
+                    let dim_offset = 2usize - 1usize + i;
+                    if shape[dim_offset] == 1 && input_dims[i] > 1 {
+                        shape[dim_offset] = input_dims[i] as i64;
+                    }
+                }
+                input_tensor.expand(shape)
             };
             output
         }

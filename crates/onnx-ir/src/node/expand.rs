@@ -98,12 +98,8 @@ impl NodeProcessor for ExpandProcessor {
         let input_elem_type = match &node.inputs[0].ty {
             ArgType::Tensor(tensor) => tensor.dtype,
             ArgType::ScalarTensor(dtype) | ArgType::ScalarNative(dtype) => *dtype,
-            _ => {
-                return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Scalar".to_string(),
-                    actual: format!("{:?}", node.inputs[0].ty),
-                });
-            }
+            // Shape is a 1D int64 tensor of dimension sizes
+            ArgType::Shape(_) => DType::I64,
         };
 
         // Determine output type based on config
@@ -146,6 +142,8 @@ impl NodeProcessor for ExpandProcessor {
                                     // expanded to 1D [batch_size]).
                                     match &node.inputs[0].ty {
                                         ArgType::Tensor(t) => t.rank,
+                                        // Shape is always 1D
+                                        ArgType::Shape(_) => 1,
                                         other => {
                                             return Err(ProcessError::Custom(format!(
                                                 "Cannot determine output rank for Expand node {} \
@@ -590,6 +588,31 @@ mod tests {
                     DType::I64,
                     "Expand should use input type (Int64) not initial output type (Float32)"
                 );
+                assert_eq!(tensor.rank, 2);
+                assert_eq!(tensor.static_shape, Some(vec![Some(2), Some(3)]));
+            }
+            _ => panic!("Expected tensor output"),
+        }
+    }
+
+    #[test]
+    fn test_expand_shape_input_static_target() {
+        // When input[0] is ArgType::Shape (e.g., output of a Shape node),
+        // Expand should treat it as a 1D int64 tensor.
+        // This pattern occurs in models like piper-tts/VITS (issue #266).
+        let mut node = TestNodeBuilder::new(NodeType::Expand, "test_expand")
+            .add_input("input", ArgType::Shape(2))
+            .input_tensor_i64_data("shape", vec![2, 3], vec![2])
+            .output_tensor_i64("output", 0, None)
+            .build_with_graph_data(16);
+
+        let processor = ExpandProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        match &node.outputs[0].ty {
+            ArgType::Tensor(tensor) => {
+                assert_eq!(tensor.dtype, DType::I64);
                 assert_eq!(tensor.rank, 2);
                 assert_eq!(tensor.static_shape, Some(vec![Some(2), Some(3)]));
             }
