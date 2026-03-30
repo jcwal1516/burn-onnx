@@ -83,6 +83,7 @@ pub mod depth_to_space;
 pub mod dequantize_linear;
 pub mod det;
 pub mod dropout;
+pub mod einsum;
 pub mod expand;
 pub mod eye_like;
 pub mod flatten;

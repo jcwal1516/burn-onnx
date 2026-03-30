@@ -67,6 +67,7 @@ impl_node_codegen_dispatch! {
     Max,
     Min,
     MatMul,
+    Einsum,
 
     // Comparison ops
     Equal,

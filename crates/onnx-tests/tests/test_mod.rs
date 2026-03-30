@@ -52,6 +52,7 @@ pub mod dequantize_linear;
 pub mod det;
 pub mod div;
 pub mod dropout;
+pub mod einsum;
 pub mod elu;
 pub mod empty_graph;
 pub mod equal;

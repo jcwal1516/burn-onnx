@@ -58,6 +58,7 @@ pub(crate) mod dequantize_linear;
 pub(crate) mod det;
 pub(crate) mod div;
 pub(crate) mod dropout;
+pub(crate) mod einsum;
 pub(crate) mod elu;
 pub(crate) mod equal;
 pub(crate) mod erf;

@@ -425,6 +425,10 @@ impl ProcessorRegistry {
         );
         registry.register(NodeType::Gemm, Box::new(crate::node::gemm::GemmProcessor));
         registry.register(
+            NodeType::Einsum,
+            Box::new(crate::node::einsum::EinsumProcessor),
+        );
+        registry.register(
             NodeType::MatMulInteger,
             Box::new(crate::node::matmulinteger::MatMulIntegerProcessor),
         );
