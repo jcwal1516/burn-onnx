@@ -35,42 +35,37 @@ fn scalar_native_to_tensor(expr: TokenStream, dtype: DType) -> TokenStream {
     // Promote through a wide host literal and let Burn cast to the requested dtype.
     if matches!(dtype, DType::F16 | DType::BF16) {
         quote! {
-            Tensor::<B, 1>::from_data_dtype(
+            Tensor::<B, 1>::from_data(
                 burn::tensor::TensorData::from([(#expr).to_f64()]),
-                &*self.device,
-                #dtype_tokens
+                (&*self.device, #dtype_tokens)
             )
         }
     } else if matches!(dtype, DType::F32) {
         quote! {
-            Tensor::<B, 1>::from_data_dtype(
+            Tensor::<B, 1>::from_data(
                 burn::tensor::TensorData::from([f64::from(#expr)]),
-                &*self.device,
-                #dtype_tokens
+                (&*self.device, #dtype_tokens)
             )
         }
     } else if matches!(dtype, DType::F64) {
         quote! {
-            Tensor::<B, 1>::from_data_dtype(
+            Tensor::<B, 1>::from_data(
                 burn::tensor::TensorData::from([#expr]),
-                &*self.device,
-                #dtype_tokens
+                (&*self.device, #dtype_tokens)
             )
         }
     } else if dtype.is_int() || dtype.is_uint() {
         quote! {
-            Tensor::<B, 1, burn::tensor::Int>::from_data_dtype(
+            Tensor::<B, 1, burn::tensor::Int>::from_data(
                 burn::tensor::TensorData::from([#expr as i64]),
-                &*self.device,
-                #dtype_tokens
+                (&*self.device, #dtype_tokens)
             )
         }
     } else if dtype.is_bool() {
         quote! {
-            Tensor::<B, 1, burn::tensor::Bool>::from_data_dtype(
+            Tensor::<B, 1, burn::tensor::Bool>::from_data(
                 burn::tensor::TensorData::from([#expr]),
-                &*self.device,
-                #dtype_tokens
+                (&*self.device, #dtype_tokens)
             )
         }
     } else {
@@ -599,7 +594,7 @@ mod tests {
         let code = codegen_forward_default(&node);
 
         assert!(code.contains("scale: f32"));
-        assert!(code.contains("from_data_dtype("));
+        assert!(code.contains("from_data("));
         assert!(code.contains("TensorData::from([f64::from(scale)])"));
         assert!(code.contains("reshape([1usize, 1usize, 1usize])"));
         assert!(code.contains("einsum_rhs_shape[0usize]"));
@@ -655,7 +650,7 @@ mod tests {
 
         assert!(code.contains("-> Tensor<B, 1>"));
         assert!(code.contains("let einsum_lhs ="));
-        assert!(code.contains("from_data_dtype("));
+        assert!(code.contains("from_data("));
         assert!(code.contains("let einsum_rhs = rhs;"));
         assert!(code.contains("let einsum_result: Tensor<B, 1>"));
         assert!(code.contains(".reshape([1usize])"));
