@@ -8,6 +8,7 @@ include_models!(
     gather_static_shape_indices,
     gather_scalar_out,
     gather_shape,
+    gather_shape_reorder,
     gather_with_shape_indices,
     gather_scalar_input,
     gather_negative_idx
@@ -89,6 +90,22 @@ mod tests {
         // Runtime negative index -1 should get the last element (shape[2] = 3)
         let expected_neg = [3i64];
         assert_eq!(output_neg, expected_neg);
+    }
+
+    #[test]
+    fn gather_shape_reorder() {
+        // Test Gather(Shape, tensor_indices) with multi-element 1D indices
+        // Reproduces part of #258: Gather produced wrong Shape rank for tensor indices,
+        // breaking downstream Slice operations
+        // Pattern: Shape([1,3,8,6]) -> Gather([0,2,3,1]) -> Slice([1:3]) -> [8, 6]
+        let device = Default::default();
+        let model = gather_shape_reorder::Model::<TestBackend>::new(&device);
+
+        let input = Tensor::<TestBackend, 4>::ones([1, 3, 8, 6], &device);
+        let output = model.forward(input);
+
+        // Reordered shape is [1,8,6,3], sliced [1:3] gives spatial dims [8, 6]
+        assert_eq!(output, [8i64, 6]);
     }
 
     #[test]

@@ -4,7 +4,8 @@ include_models!(
     unsqueeze_runtime_axes,
     unsqueeze_int_to_shape,
     squeeze_unsqueeze_roundtrip,
-    unsqueeze_scalar_axes
+    unsqueeze_scalar_axes,
+    unsqueeze_shape_input
 );
 
 #[cfg(test)]
@@ -84,6 +85,24 @@ mod tests {
 
         // Verify the value is preserved through the squeeze/unsqueeze roundtrip
         assert_eq!(output_shape[0], input_value);
+    }
+
+    #[test]
+    fn unsqueeze_shape_input() {
+        // Test Unsqueeze where the data input is a Shape type (from Shape op)
+        // Reproduces issue #258: bodyposenet fails because Shape -> Unsqueeze was rejected
+        let device = Default::default();
+        let model = unsqueeze_shape_input::Model::<TestBackend>::new(&device);
+
+        // Input: 2D float tensor [2, 3]
+        let input = Tensor::<TestBackend, 2>::ones([2, 3], &device);
+
+        // Output should be the shape [2, 3] unsqueezed to [[2, 3]] (shape [1, 2])
+        let output = model.forward(input);
+
+        assert_eq!(output.shape(), Shape::from([1, 2]));
+        let expected = Tensor::<TestBackend, 2, burn::tensor::Int>::from_data([[2i64, 3]], &device);
+        output.to_data().assert_eq(&expected.to_data(), true);
     }
 
     #[test]

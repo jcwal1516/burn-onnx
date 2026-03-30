@@ -113,6 +113,17 @@ impl NodeCodegen for onnx_ir::unsqueeze::UnsqueezeNode {
                     let #output = #value_expr;
                 }
             }
+            (ArgType::Shape(_), ArgType::Tensor(output_tensor)) => {
+                let input_name = arg_to_ident(input_arg);
+                let output_rank = output_tensor.rank.to_tokens();
+                let dtype_tokens = output_tensor.dtype.to_tokens();
+                quote! {
+                    let #output: Tensor<B, #output_rank, Int> = Tensor::<B, 1, Int>::from_data(
+                        burn::tensor::TensorData::from(#input_name.as_slice()),
+                        (&*self.device, #dtype_tokens)
+                    ).unsqueeze_dims::<#output_rank>(&#axes);
+                }
+            }
             _ => panic!(
                 "UnsqueezeNode received unsupported input/output combination: {:?} -> {:?}",
                 input_arg.ty, output_arg.ty
@@ -169,6 +180,33 @@ mod tests {
         assert_snapshot!(code, @r"
         pub fn forward(&self, input: Tensor<B, 2>) -> Tensor<B, 3> {
             let output: Tensor<B, 3> = input.unsqueeze_dims::<3>(&[2]);
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_unsqueeze_shape_input() {
+        let config = UnsqueezeConfig::Static(vec![0]);
+
+        let node = UnsqueezeNodeBuilder::new("unsqueeze_shape")
+            .input_shape("shape_val", 4)
+            .output_tensor("output", 2, DType::I64)
+            .config(config)
+            .build();
+
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, shape_val: [i64; 4]) -> Tensor<B, 2, Int> {
+            let output: Tensor<B, 2, Int> = Tensor::<
+                B,
+                1,
+                Int,
+            >::from_data(
+                    burn::tensor::TensorData::from(shape_val.as_slice()),
+                    (&*self.device, burn::tensor::DType::I64),
+                )
+                .unsqueeze_dims::<2>(&[0]);
             output
         }
         ");

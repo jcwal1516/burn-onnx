@@ -175,10 +175,15 @@ impl NodeProcessor for GatherProcessor {
                 if indices_rank == 0 {
                     node.outputs[0].ty = ArgType::ScalarNative(crate::ir::DType::I64);
                 } else {
-                    // For Shape indices, use the actual shape rank (number of elements)
+                    // Shape(N) means N elements, so use the number of gathered elements
                     let output_shape_rank = match &node.inputs[1].ty {
                         ArgType::Shape(shape_rank) => *shape_rank,
-                        ArgType::Tensor(_) => indices_rank, // For tensor indices, use computed rank
+                        ArgType::Tensor(t) => {
+                            // Use static shape to get actual element count
+                            t.static_shape_known()
+                                .and_then(|s| s.first().copied())
+                                .unwrap_or(indices_rank)
+                        }
                         _ => indices_rank,
                     };
                     node.outputs[0].ty = ArgType::Shape(output_shape_rank);
