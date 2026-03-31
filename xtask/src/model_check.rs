@@ -104,7 +104,7 @@ const MODELS: &[ModelInfo] = &[
         name: "RF-DETR Small",
         env: None,
         download_args: &[],
-        blocked: true, // https://github.com/tracel-ai/burn-onnx/issues/272
+        blocked: false,
     },
     ModelInfo {
         id: "depth-anything-v2",

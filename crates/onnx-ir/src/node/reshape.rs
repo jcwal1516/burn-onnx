@@ -206,6 +206,7 @@ fn get_rank_from_shape_input(node: &RawNode) -> Option<usize> {
             .as_ref()
             .filter(|dims| !dims.is_empty())
             .and_then(|dims| dims[0]),
+        ArgType::ScalarTensor(_) => Some(1),
         _ => None,
     }
 }
@@ -343,9 +344,18 @@ impl NodeProcessor for ReshapeProcessor {
                 ArgType::Shape(_) => {
                     // Shape type is valid
                 }
+                ArgType::ScalarTensor(dtype) => {
+                    // ScalarTensor is rank 1; validate dtype like a 1D tensor
+                    if *dtype != crate::ir::DType::I64 {
+                        return Err(ProcessError::TypeMismatch {
+                            expected: "Shape ScalarTensor with dtype I64".to_string(),
+                            actual: format!("ScalarTensor with dtype {:?}", dtype),
+                        });
+                    }
+                }
                 _ => {
                     return Err(ProcessError::TypeMismatch {
-                        expected: "Tensor or Shape for shape input".to_string(),
+                        expected: "Tensor, Shape, or ScalarTensor for shape input".to_string(),
                         actual: format!("{:?}", node.inputs[1].ty),
                     });
                 }
@@ -508,9 +518,18 @@ impl NodeProcessor for ReshapeProcessor {
                 // Runtime input - store reference instead of cloning the argument
                 ReshapeInput::Runtime(RuntimeInputRef::new(node.inputs[1].name.clone(), 1))
             }
+            ArgType::ScalarTensor(_) => {
+                // ScalarTensor is rank 1 with a single element
+                match node.inputs[1].value() {
+                    Some(tensor_data) => ReshapeInput::Static(tensor_data.to_vec::<i64>().unwrap()),
+                    None => {
+                        ReshapeInput::Runtime(RuntimeInputRef::new(node.inputs[1].name.clone(), 1))
+                    }
+                }
+            }
             _ => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
+                    expected: "Tensor, Shape, or ScalarTensor".to_string(),
                     actual: format!("{:?}", node.inputs[1].ty),
                 });
             }
@@ -927,5 +946,38 @@ mod tests {
             }
             _ => panic!("Expected tensor output"),
         }
+    }
+
+    #[test]
+    fn test_reshape_scalar_tensor_shape_input() {
+        // ScalarTensor(I64) as shape input with a static value [3]
+        let mut node = TestNodeBuilder::new(NodeType::Reshape, "test_reshape")
+            .input_tensor_f32("data", 2, None)
+            .add_input("shape", ArgType::ScalarTensor(DType::I64))
+            .output_tensor_f32("reshaped", 0, None)
+            .build();
+
+        let processor = ReshapeProcessor;
+        let prefs = OutputPreferences::new();
+        // Should accept ScalarTensor(I64) without error
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        let config = processor.extract_config(&node, 16).unwrap();
+        // No static value, so should be Runtime
+        assert!(matches!(config.shape, ReshapeInput::Runtime(_)));
+    }
+
+    #[test]
+    fn test_reshape_scalar_tensor_wrong_dtype() {
+        let mut node = TestNodeBuilder::new(NodeType::Reshape, "test_reshape")
+            .input_tensor_f32("data", 2, None)
+            .add_input("shape", ArgType::ScalarTensor(DType::F32))
+            .output_tensor_f32("reshaped", 0, None)
+            .build();
+
+        let processor = ReshapeProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(matches!(result, Err(ProcessError::TypeMismatch { .. })));
     }
 }

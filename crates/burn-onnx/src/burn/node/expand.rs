@@ -63,9 +63,29 @@ impl NodeCodegen for onnx_ir::expand::ExpandNode {
             };
         }
 
-        // For scalar inputs, materialize as rank-1 tensor and expand directly.
-        // No max-semantics loop needed since a scalar always has dim [1].
-        if input_arg.ty.is_scalar() {
+        // ScalarTensor is already a Tensor<B, 1> on device, just expand directly.
+        if input_arg.ty.is_scalar_tensor() {
+            let static_shape = match &self.config {
+                onnx_ir::expand::ExpandConfig::Static(s) => Some(s.clone()),
+                _ => None,
+            };
+            // Empty shape means identity (keep same shape)
+            if static_shape.as_ref().is_some_and(|s| s.is_empty()) {
+                return quote! {
+                    let #output = #input;
+                };
+            }
+            let rank_tok = output_rank.to_tokens();
+            return quote! {
+                let #output = {
+                    let shape: [i64; #rank_tok] = #shape;
+                    #input.expand(shape)
+                };
+            };
+        }
+
+        // For ScalarNative inputs, materialize as rank-1 tensor and expand.
+        if input_arg.ty.is_scalar_native() {
             let dtype = input_arg.ty.elem_type();
             let dtype_tokens = dtype.to_tokens();
             let kind = match dtype {
@@ -244,6 +264,27 @@ mod tests {
                     (&*self.device, burn::tensor::DType::Bool(burn::tensor::BoolStore::Native)),
                 );
                 input.expand([2, 3])
+            };
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_expand_scalar_tensor_i64() {
+        // ScalarTensor is already on device, just expand directly
+        let config = ExpandConfig::Static(vec![2, 3]);
+        let node = ExpandNodeBuilder::new("expand_st")
+            .input_scalar_tensor("input", DType::I64)
+            .output_tensor("output", 2, DType::I64)
+            .config(config)
+            .build();
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, input: Tensor<B, 1, Int>) -> Tensor<B, 2, Int> {
+            let output = {
+                let shape: [i64; 2] = [2, 3];
+                input.expand(shape)
             };
             output
         }

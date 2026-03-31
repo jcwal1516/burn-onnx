@@ -211,9 +211,17 @@ impl NodeProcessor for SliceProcessor {
                 );
                 node.outputs[0].ty = ArgType::Shape(output_len);
             }
+            ArgType::ScalarTensor(dtype) => {
+                // Treat as rank-1 tensor; slicing may change element count
+                node.outputs[0].ty = ArgType::Tensor(crate::ir::TensorType {
+                    dtype,
+                    rank: 1,
+                    static_shape: None,
+                });
+            }
             unsupported_type => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
+                    expected: "Tensor, Shape, or ScalarTensor".to_string(),
                     actual: format!("{:?}", unsupported_type),
                 });
             }
@@ -782,4 +790,27 @@ mod tests {
 
     // TODO: Missing test for INT32_MAX / INT64_MAX special values in ends.
     // ONNX spec mentions these special values mean "slice to the end" but not tested.
+
+    #[test]
+    fn test_slice_scalar_tensor_input() {
+        // Slicing a ScalarTensor produces a rank-1 Tensor (slice may change element count)
+        let mut node = TestNodeBuilder::new(NodeType::Slice, "test_slice")
+            .add_input("data", ArgType::ScalarTensor(DType::I64))
+            .input_tensor_i64_data("starts", vec![0], vec![1])
+            .input_tensor_i64_data("ends", vec![1], vec![1])
+            .output_default("output")
+            .build_with_graph_data(16);
+
+        let processor = SliceProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        match &node.outputs[0].ty {
+            ArgType::Tensor(t) => {
+                assert_eq!(t.dtype, DType::I64);
+                assert_eq!(t.rank, 1);
+            }
+            other => panic!("Expected Tensor, got {:?}", other),
+        }
+    }
 }

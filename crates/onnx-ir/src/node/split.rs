@@ -92,9 +92,10 @@ impl NodeProcessor for SplitProcessor {
         let (dtype, rank, input_static_shape) = match &node.inputs.first().unwrap().ty {
             ArgType::Tensor(tensor) => (tensor.dtype, tensor.rank, tensor.static_shape.clone()),
             ArgType::Shape(r) => (crate::ir::DType::I64, 1, Some(vec![Some(*r)])),
+            ArgType::ScalarTensor(dtype) => (*dtype, 1, Some(vec![Some(1)])),
             _ => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
+                    expected: "Tensor, Shape, or ScalarTensor".to_string(),
                     actual: format!("{:?}", node.inputs.first().unwrap().ty),
                 });
             }
@@ -180,9 +181,14 @@ impl NodeProcessor for SplitProcessor {
                 rank: 1,
                 static_shape: Some(vec![Some(*rank)]),
             },
+            ArgType::ScalarTensor(dtype) => TensorType {
+                dtype: *dtype,
+                rank: 1,
+                static_shape: Some(vec![Some(1)]),
+            },
             _ => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
+                    expected: "Tensor, Shape, or ScalarTensor".to_string(),
                     actual: format!("{:?}", node.inputs.first().unwrap().ty),
                 });
             }
@@ -874,4 +880,25 @@ mod tests {
 
     // TODO: Missing test for opset < 13 behavior - split as attribute vs input.
     // Implementation requires opset 11+ but attribute-based split (opset < 13) might not work.
+
+    #[test]
+    fn test_split_scalar_tensor_input() {
+        // ScalarTensor(F32) as primary input: treated as rank-1 tensor with 1 element
+        let mut node = TestNodeBuilder::new(NodeType::Split, "test_split")
+            .add_input("data", ArgType::ScalarTensor(DType::F32))
+            .output_default("output_0")
+            .build();
+
+        let processor = SplitProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        match &node.outputs[0].ty {
+            ArgType::Tensor(t) => {
+                assert_eq!(t.dtype, DType::F32);
+                assert_eq!(t.rank, 1);
+            }
+            other => panic!("Expected Tensor, got {:?}", other),
+        }
+    }
 }

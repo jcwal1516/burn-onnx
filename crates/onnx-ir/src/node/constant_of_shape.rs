@@ -100,9 +100,18 @@ impl NodeProcessor for ConstantOfShapeProcessor {
             ArgType::Shape(_) => {
                 // Shapes are always 1-D int64 data, so nothing to validate here
             }
+            ArgType::ScalarTensor(dtype) => {
+                // ScalarTensor is rank 1; validate dtype like a 1D tensor
+                if !matches!(dtype, DType::I64) {
+                    return Err(ProcessError::TypeMismatch {
+                        expected: "Int64".to_string(),
+                        actual: format!("{:?}", dtype),
+                    });
+                }
+            }
             _ => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
+                    expected: "Tensor, Shape, or ScalarTensor".to_string(),
                     actual: format!("{:?}", node.inputs[0].ty),
                 });
             }
@@ -126,6 +135,11 @@ impl NodeProcessor for ConstantOfShapeProcessor {
 
         let rank = match &node.inputs[0].ty {
             ArgType::Shape(rank) => *rank,
+            ArgType::ScalarTensor(_) => {
+                // ScalarTensor is a 1-element shape vector, so output rank is always 1.
+                // The scalar value determines the size of that single dimension.
+                1
+            }
             ArgType::Tensor(tensor_type) => {
                 // First check if we have a lifted constant value (most reliable)
                 if let Some(tensor_data) = node.inputs[0].value() {
@@ -162,7 +176,7 @@ impl NodeProcessor for ConstantOfShapeProcessor {
             }
             _ => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
+                    expected: "Tensor, Shape, or ScalarTensor".to_string(),
                     actual: format!("{:?}", node.inputs[0].ty),
                 });
             }
@@ -484,5 +498,32 @@ mod tests {
             }
             _ => panic!("Expected Tensor output for Shape(1) input with default Float32 value"),
         }
+    }
+
+    #[test]
+    fn test_scalar_tensor_input() {
+        // ScalarTensor(I64) with no static value: rank defaults to 1
+        let mut node = create_test_node(ArgType::ScalarTensor(DType::I64)).build();
+        let processor = ConstantOfShapeProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        match &node.outputs[0].ty {
+            ArgType::Tensor(tensor) => {
+                assert_eq!(tensor.dtype, DType::F32);
+                assert_eq!(tensor.rank, 1);
+            }
+            _ => panic!("Expected Tensor output for ScalarTensor(I64) input"),
+        }
+    }
+
+    #[test]
+    fn test_scalar_tensor_wrong_dtype() {
+        // ScalarTensor(F32) should be rejected (must be I64)
+        let mut node = create_test_node(ArgType::ScalarTensor(DType::F32)).build();
+        let processor = ConstantOfShapeProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(matches!(result, Err(ProcessError::TypeMismatch { .. })));
     }
 }

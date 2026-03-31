@@ -77,9 +77,16 @@ impl NodeProcessor for ShapeProcessor {
                 // Shape of a Shape: output is always a 1-element array containing the length
                 1
             }
+            ArgType::ScalarTensor(_) => {
+                // ScalarTensor is rank 1; apply start/end like a rank-1 Tensor
+                let config = self
+                    .extract_config(node, opset)
+                    .expect("Config extraction failed");
+                config.end - config.start
+            }
             _ => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
+                    expected: "Tensor, Shape, or ScalarTensor".to_string(),
                     actual: format!("{:?}", node.inputs[0].ty),
                 });
             }
@@ -96,9 +103,10 @@ impl NodeProcessor for ShapeProcessor {
         let rank = match &node.inputs[0].ty {
             ArgType::Tensor(tensor) => tensor.rank,
             ArgType::Shape(rank) => *rank,
+            ArgType::ScalarTensor(_) => 1,
             _ => {
                 return Err(ProcessError::TypeMismatch {
-                    expected: "Tensor or Shape".to_string(),
+                    expected: "Tensor, Shape, or ScalarTensor".to_string(),
                     actual: format!("{:?}", node.inputs[0].ty),
                 });
             }
@@ -298,5 +306,20 @@ mod tests {
 
         // Should always output Shape type
         assert!(matches!(node.outputs[0].ty, ArgType::Shape(3)));
+    }
+
+    #[test]
+    fn test_shape_scalar_tensor_input() {
+        // ScalarTensor is rank 1, so Shape should return Shape(1)
+        let mut node = TestNodeBuilder::new(NodeType::Shape, "test_shape")
+            .add_input("data", ArgType::ScalarTensor(crate::ir::DType::I64))
+            .output_tensor_i64("shape", 1, None)
+            .build();
+
+        let processor = ShapeProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        assert!(matches!(node.outputs[0].ty, ArgType::Shape(1)));
     }
 }

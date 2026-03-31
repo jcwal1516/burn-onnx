@@ -48,8 +48,22 @@ impl NodeCodegen for onnx_ir::shape::ShapeNode {
                 let rank_value = *shape_rank as i64;
                 quote! { [#rank_value] }
             }
-            ArgType::ScalarNative(_) | ArgType::ScalarTensor(_) => {
-                panic!("Shape operation only supports Tensor or Shape inputs")
+            ArgType::ScalarTensor(_) => {
+                // ScalarTensor is rank 1, so Shape returns [1]
+                let input = scope.arg(input_arg);
+                quote! {
+                    {
+                        let axes = &#input.dims()[#start_dim_tok..#end_dim_tok];
+                        let mut output = [0i64; #output_rank];
+                        for i in 0..#output_rank {
+                            output[i] = axes[i] as i64;
+                        }
+                        output
+                    }
+                }
+            }
+            ArgType::ScalarNative(_) => {
+                panic!("Shape operation does not support ScalarNative inputs")
             }
         };
 
@@ -142,6 +156,33 @@ mod tests {
         assert_snapshot!(code, @r"
         pub fn forward(&self, input: [i64; 3]) -> [i64; 1] {
             let output: [i64; 1] = [3i64];
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_shape_of_scalar_tensor() {
+        let config = ShapeConfig { start: 0, end: 1 };
+        let input = Argument::new("input", ArgType::ScalarTensor(DType::I64));
+
+        let node = ShapeNode {
+            name: "shape4".to_string(),
+            inputs: vec![input],
+            outputs: vec![Argument::new("output", ArgType::Shape(1))],
+            config,
+        };
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, input: Tensor<B, 1, Int>) -> [i64; 1] {
+            let output: [i64; 1] = {
+                let axes = &input.dims()[0..1];
+                let mut output = [0i64; 1];
+                for i in 0..1 {
+                    output[i] = axes[i] as i64;
+                }
+                output
+            };
             output
         }
         ");
