@@ -1,7 +1,10 @@
 use crate::include_models;
 include_models!(
     einsum,
+    einsum_ellipsis,
+    einsum_implicit,
     einsum_outer_int,
+    einsum_reduction,
     einsum_sam,
     einsum_scalar,
     einsum_scalar_scalar,
@@ -110,6 +113,63 @@ mod tests {
             einsum_scalar_scalar::Model::default();
         let output = model.forward(2.0, 3.0);
         assert_eq!(output, 6.0f32);
+    }
+
+    #[test]
+    fn einsum_implicit_form() {
+        let model: einsum_implicit::Model<TestBackend> = einsum_implicit::Model::default();
+        let device = Default::default();
+
+        let a =
+            Tensor::<TestBackend, 2>::from_floats([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], &device);
+        let b = Tensor::<TestBackend, 2>::from_floats([[1.0, 2.0], [3.0, 4.0]], &device);
+
+        let output = model.forward(a, b);
+
+        // "ij,jk" is equivalent to "ij,jk->ik" (standard matmul)
+        let expected = TensorData::from([[7.0f32, 10.0], [15.0, 22.0], [23.0, 34.0]]);
+        output.to_data().assert_eq(&expected, true);
+    }
+
+    #[test]
+    fn einsum_one_sided_reduction() {
+        let model: einsum_reduction::Model<TestBackend> = einsum_reduction::Model::default();
+        let device = Default::default();
+
+        let a = Tensor::<TestBackend, 2>::from_floats([[1.0, 2.0], [3.0, 4.0]], &device);
+        let b = Tensor::<TestBackend, 2>::from_floats([[10.0, 20.0, 30.0]], &device);
+
+        let output = model.forward(a, b);
+
+        // "ij,kl->il": output[i,l] = sum_j(a[i,j]) * sum_k(b[k,l])
+        // sum_j(a[0,:]) = 3, sum_j(a[1,:]) = 7
+        // sum_k(b[:,0]) = 10, sum_k(b[:,1]) = 20, sum_k(b[:,2]) = 30
+        let expected = TensorData::from([[30.0f32, 60.0, 90.0], [70.0, 140.0, 210.0]]);
+        output.to_data().assert_eq(&expected, true);
+    }
+
+    #[test]
+    fn einsum_ellipsis_batch_matmul() {
+        let model: einsum_ellipsis::Model<TestBackend> = einsum_ellipsis::Model::default();
+        let device = Default::default();
+
+        // "...ij,...jk->...ik" with rank 4 (2 batch dims)
+        // Use identity-like matrices for easy verification
+        let a = Tensor::<TestBackend, 4>::from_floats(
+            [[[[1.0, 0.0], [0.0, 1.0]], [[2.0, 0.0], [0.0, 2.0]]]],
+            &device,
+        );
+        let b = Tensor::<TestBackend, 4>::from_floats(
+            [[[[1.0, 2.0], [3.0, 4.0]], [[5.0, 6.0], [7.0, 8.0]]]],
+            &device,
+        );
+
+        let output = model.forward(a, b);
+        assert_eq!(output.dims(), [1, 2, 2, 2]);
+
+        let expected =
+            TensorData::from([[[[1.0f32, 2.0], [3.0, 4.0]], [[10.0, 12.0], [14.0, 16.0]]]]);
+        output.to_data().assert_eq(&expected, true);
     }
 
     #[test]

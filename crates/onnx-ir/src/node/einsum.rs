@@ -1,23 +1,22 @@
 //! # Einsum
 //!
-//! Explicit 2-input einsum support for patterns that lower cleanly to Burn tensor
-//! operations.
+//! 2-input einsum support for patterns that lower cleanly to Burn tensor operations.
 //!
 //! Supported examples:
-//! - `ij,jk->ik`
+//! - `ij,jk->ik` (explicit form)
+//! - `ij,jk` (implicit form, output inferred alphabetically)
 //! - `bij,bjk->bik`
 //! - `bhwc,hkc->bhwk`
 //! - `i,j->ij`
 //! - `,ij->ij`
 //! - `ij,->ij`
+//! - `ij,kl->il` (one-sided reduction)
+//!
+//! - `...ij,...jk->...ik` (ellipsis broadcasting)
 //!
 //! Unsupported:
-//! - implicit output form
-//! - ellipsis
 //! - more than 2 inputs
 //! - repeated labels within one term
-//! - labels reduced in only one input
-//! - multiple shared labels that are not all statically known on both inputs
 //!
 //! ONNX spec: <https://onnx.ai/onnx/operators/onnx__Einsum.html>
 
@@ -104,10 +103,20 @@ impl NodeProcessor for EinsumProcessor {
             .clone()
             .into_string();
 
-        let parsed = ParsedEinsum::parse(&equation).map_err(ProcessError::Custom)?;
-
         let lhs = EinsumOperand::from_arg(&node.inputs[0].ty)?;
         let rhs = EinsumOperand::from_arg(&node.inputs[1].ty)?;
+
+        // Expand ellipsis to concrete labels using input ranks.
+        let equation =
+            expand_ellipsis(&equation, &[lhs.rank, rhs.rank]).map_err(ProcessError::Custom)?;
+
+        // Store the expanded equation back so extract_config sees it.
+        node.attrs.insert(
+            "equation".to_string(),
+            crate::ir::AttributeValue::String(equation.clone()),
+        );
+
+        let parsed = ParsedEinsum::parse(&equation).map_err(ProcessError::Custom)?;
 
         if lhs.dtype != rhs.dtype {
             return Err(ProcessError::TypeMismatch {
@@ -136,7 +145,6 @@ impl NodeProcessor for EinsumProcessor {
             )));
         }
 
-        validate_grouped_shared_axes(&equation, &parsed, lhs, rhs)?;
         let static_shape = infer_output_static_shape(&equation, &parsed, lhs, rhs)?;
 
         node.outputs[0].ty = if parsed.output.is_empty() {
@@ -195,17 +203,12 @@ pub struct ParsedEinsum {
 }
 
 impl ParsedEinsum {
-    /// Parse a supported 2-input explicit einsum equation.
+    /// Parse a 2-input einsum equation in explicit (`ij,jk->ik`) or implicit (`ij,jk`) form.
+    ///
+    /// In implicit form the output indices are the alphabetically sorted set of indices
+    /// that appear exactly once across all input terms (per the ONNX spec).
     pub fn parse(equation: &str) -> Result<Self, String> {
         let equation: String = equation.chars().filter(|c| !c.is_whitespace()).collect();
-
-        let parts: Vec<&str> = equation.split("->").collect();
-        if parts.len() != 2 {
-            return Err(format!(
-                "Einsum equation '{}' must be in explicit form with '->' separator",
-                equation
-            ));
-        }
 
         if equation.contains("...") {
             return Err(format!(
@@ -214,8 +217,23 @@ impl ParsedEinsum {
             ));
         }
 
-        let inputs_str = parts[0];
-        let output_str = parts[1];
+        let (inputs_str, output) = if let Some((lhs_str, rhs_str)) = equation.split_once("->") {
+            (lhs_str, rhs_str.chars().collect::<Vec<char>>())
+        } else {
+            // Implicit form: output is the alphabetically sorted set of indices
+            // that appear exactly once across all input terms.
+            let all_labels: Vec<char> = equation.replace(',', "").chars().collect();
+            let mut counts = std::collections::BTreeMap::new();
+            for &c in &all_labels {
+                *counts.entry(c).or_insert(0usize) += 1;
+            }
+            let output: Vec<char> = counts
+                .into_iter()
+                .filter(|&(_, count)| count == 1)
+                .map(|(c, _)| c)
+                .collect();
+            (equation.as_str(), output)
+        };
 
         let input_parts: Vec<&str> = inputs_str.split(',').collect();
         if input_parts.len() != 2 {
@@ -228,7 +246,6 @@ impl ParsedEinsum {
 
         let lhs: Vec<char> = input_parts[0].chars().collect();
         let rhs: Vec<char> = input_parts[1].chars().collect();
-        let output: Vec<char> = output_str.chars().collect();
 
         for &c in lhs.iter().chain(rhs.iter()).chain(output.iter()) {
             if !c.is_ascii_lowercase() {
@@ -265,19 +282,6 @@ impl ParsedEinsum {
                     equation, c
                 ));
             }
-        }
-
-        if let Some(axis) = find_one_sided_reduction_axis(&lhs, &rhs, &output) {
-            return Err(format!(
-                "Einsum equation '{}' reduces left-only index '{}' which is not supported",
-                equation, axis
-            ));
-        }
-        if let Some(axis) = find_one_sided_reduction_axis(&rhs, &lhs, &output) {
-            return Err(format!(
-                "Einsum equation '{}' reduces right-only index '{}' which is not supported",
-                equation, axis
-            ));
         }
 
         Ok(ParsedEinsum { lhs, rhs, output })
@@ -318,22 +322,155 @@ impl ParsedEinsum {
             .copied()
             .collect()
     }
+
+    /// Indices that appear only in the left input and are absent from the output (summed out).
+    pub fn reduced_lhs_axes(&self) -> Vec<char> {
+        self.lhs
+            .iter()
+            .filter(|c| !self.rhs.contains(c) && !self.output.contains(c))
+            .copied()
+            .collect()
+    }
+
+    /// Indices that appear only in the right input and are absent from the output (summed out).
+    pub fn reduced_rhs_axes(&self) -> Vec<char> {
+        self.rhs
+            .iter()
+            .filter(|c| !self.lhs.contains(c) && !self.output.contains(c))
+            .copied()
+            .collect()
+    }
+}
+
+/// Expand ellipsis (`...`) in an einsum equation to concrete lowercase labels.
+///
+/// The number of ellipsis dimensions is inferred from the tensor ranks: if a term has `...ij`
+/// and the input has rank 5, the `...` represents 3 dimensions.
+///
+/// Returns the expanded equation with `...` replaced by unused lowercase labels.
+fn expand_ellipsis(equation: &str, input_ranks: &[usize]) -> Result<String, String> {
+    let equation: String = equation.chars().filter(|c| !c.is_whitespace()).collect();
+
+    if !equation.contains("...") {
+        return Ok(equation);
+    }
+
+    // Split into input and output parts (explicit or implicit form).
+    let (inputs_str, output_str) = if let Some((lhs, rhs)) = equation.split_once("->") {
+        (lhs.to_string(), Some(rhs.to_string()))
+    } else {
+        (equation.clone(), None)
+    };
+
+    let input_parts: Vec<&str> = inputs_str.split(',').collect();
+    if input_parts.len() != input_ranks.len() {
+        return Err(format!(
+            "Einsum equation '{}' has {} input terms but {} input tensors",
+            equation,
+            input_parts.len(),
+            input_ranks.len()
+        ));
+    }
+
+    // Determine how many dims each ellipsis represents.
+    let mut ellipsis_ndim: Option<usize> = None;
+    for (part, &rank) in input_parts.iter().zip(input_ranks) {
+        if part.contains("...") {
+            let explicit_count = part.len() - 3; // subtract "..."
+            if rank < explicit_count {
+                return Err(format!(
+                    "Einsum term '{}' has {} explicit labels but input has rank {}",
+                    part, explicit_count, rank
+                ));
+            }
+            let ndim = rank - explicit_count;
+            if let Some(prev) = ellipsis_ndim
+                && prev != ndim
+            {
+                return Err(format!(
+                    "Einsum equation '{}' has inconsistent ellipsis dimensions: {} vs {}",
+                    equation, prev, ndim
+                ));
+            }
+            ellipsis_ndim = Some(ndim);
+        }
+    }
+
+    let ndim = match ellipsis_ndim {
+        Some(n) => n,
+        None => return Ok(equation), // no ellipsis in input terms
+    };
+
+    // Collect all explicit labels used in the equation.
+    let used_labels: std::collections::HashSet<char> = equation
+        .chars()
+        .filter(|c| c.is_ascii_lowercase())
+        .collect();
+
+    // Pick unused lowercase letters for the ellipsis dimensions.
+    let available: Vec<char> = ('a'..='z').filter(|c| !used_labels.contains(c)).collect();
+    if available.len() < ndim {
+        return Err(format!(
+            "Einsum equation '{}' uses too many labels; not enough free letters for {} ellipsis dims",
+            equation, ndim
+        ));
+    }
+    let ellipsis_labels: String = available[..ndim].iter().collect();
+
+    // For implicit form + ellipsis, convert to explicit form per the ONNX spec:
+    // "In implicit mode, the ellipsis dimensions are set to the beginning of the output."
+    // After expanding `...` to concrete labels, those labels appear in both inputs
+    // (counted twice) and would be excluded by the standard implicit-output rule.
+    // We fix this by computing the output explicitly here.
+    let output_str = match output_str {
+        Some(out) => Some(out),
+        None => {
+            // Compute implicit output: ellipsis labels + alphabetically sorted
+            // labels that appear exactly once across all expanded input terms.
+            let expanded_inputs: String = input_parts
+                .iter()
+                .map(|p| p.replace("...", &ellipsis_labels))
+                .collect::<Vec<_>>()
+                .join(",");
+            let all_labels: Vec<char> = expanded_inputs.replace(',', "").chars().collect();
+            let mut counts = std::collections::BTreeMap::new();
+            for &c in &all_labels {
+                *counts.entry(c).or_insert(0usize) += 1;
+            }
+            let singletons: String = counts
+                .into_iter()
+                .filter(|&(_, count)| count == 1)
+                .map(|(c, _)| c)
+                .collect();
+            Some(format!("{}{}", ellipsis_labels, singletons))
+        }
+    };
+
+    // Replace each `...` with the concrete labels.
+    let full_str = format!("{}->{}", inputs_str, output_str.as_deref().unwrap_or(""));
+
+    let mut result = String::new();
+    let mut chars = full_str.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '.' && chars.peek() == Some(&'.') {
+            chars.next(); // consume second '.'
+            if chars.peek() == Some(&'.') {
+                chars.next(); // consume third '.'
+                result.push_str(&ellipsis_labels);
+            } else {
+                result.push_str("..");
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    Ok(result)
 }
 
 fn has_duplicates(chars: &[char]) -> bool {
     let mut seen = std::collections::HashSet::new();
     chars.iter().any(|c| !seen.insert(c))
-}
-
-fn find_one_sided_reduction_axis(
-    input: &[char],
-    other_input: &[char],
-    output: &[char],
-) -> Option<char> {
-    input
-        .iter()
-        .copied()
-        .find(|label| !other_input.contains(label) && !output.contains(label))
 }
 
 fn infer_output_static_shape(
@@ -359,45 +496,6 @@ fn infer_output_static_shape(
             })
             .collect(),
     ))
-}
-
-fn validate_grouped_shared_axes(
-    equation: &str,
-    parsed: &ParsedEinsum,
-    lhs: EinsumOperand<'_>,
-    rhs: EinsumOperand<'_>,
-) -> Result<(), ProcessError> {
-    let unresolved_shared_axes: Vec<char> = parsed
-        .lhs
-        .iter()
-        .filter(|label| parsed.rhs.contains(label))
-        .copied()
-        .filter(|&label| {
-            let lhs_dim = find_static_dim(&parsed.lhs, lhs.static_shape, label).flatten();
-            let rhs_dim = find_static_dim(&parsed.rhs, rhs.static_shape, label).flatten();
-            lhs_dim.is_none() || rhs_dim.is_none()
-        })
-        .collect();
-
-    if unresolved_shared_axes.len() <= 1 {
-        return Ok(());
-    }
-
-    let unresolved_batch_axes: Vec<char> = unresolved_shared_axes
-        .iter()
-        .copied()
-        .filter(|label| parsed.output.contains(label))
-        .collect();
-    let unresolved_contraction_axes: Vec<char> = unresolved_shared_axes
-        .iter()
-        .copied()
-        .filter(|label| !parsed.output.contains(label))
-        .collect();
-
-    Err(ProcessError::Custom(format!(
-        "Einsum equation '{}' has multiple shared axes with unresolved dynamic dimensions (batch {:?}, contraction {:?}); statically known dimensions are required for all but one shared axis",
-        equation, unresolved_batch_axes, unresolved_contraction_axes
-    )))
 }
 
 fn validate_shared_static_dims(
@@ -528,8 +626,27 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_rejects_implicit_form() {
-        assert!(ParsedEinsum::parse("ij,jk").is_err());
+    fn test_parse_implicit_form_matmul() {
+        let parsed = ParsedEinsum::parse("ij,jk").unwrap();
+        assert_eq!(parsed.lhs, vec!['i', 'j']);
+        assert_eq!(parsed.rhs, vec!['j', 'k']);
+        // j appears twice (summed out), i and k appear once -> output "ik"
+        assert_eq!(parsed.output, vec!['i', 'k']);
+        assert_eq!(parsed.contraction_axes(), vec!['j']);
+    }
+
+    #[test]
+    fn test_parse_implicit_form_no_contraction() {
+        let parsed = ParsedEinsum::parse("ij,kl").unwrap();
+        // All indices appear once -> output "ijkl" (alphabetical)
+        assert_eq!(parsed.output, vec!['i', 'j', 'k', 'l']);
+    }
+
+    #[test]
+    fn test_parse_implicit_form_all_contracted() {
+        let parsed = ParsedEinsum::parse("ij,ij").unwrap();
+        // All indices appear twice -> scalar output
+        assert_eq!(parsed.output, Vec::<char>::new());
     }
 
     #[test]
@@ -548,8 +665,21 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_rejects_one_sided_reduction_axes() {
-        assert!(ParsedEinsum::parse("ij,kl->il").is_err());
+    fn test_parse_one_sided_reduction() {
+        let parsed = ParsedEinsum::parse("ij,kl->il").unwrap();
+        assert_eq!(parsed.reduced_lhs_axes(), vec!['j']);
+        assert_eq!(parsed.reduced_rhs_axes(), vec!['k']);
+        assert_eq!(parsed.batch_axes(), Vec::<char>::new());
+        assert_eq!(parsed.contraction_axes(), Vec::<char>::new());
+        assert_eq!(parsed.free_lhs_axes(), vec!['i']);
+        assert_eq!(parsed.free_rhs_axes(), vec!['l']);
+    }
+
+    #[test]
+    fn test_parse_one_sided_reduction_lhs_only() {
+        let parsed = ParsedEinsum::parse("ijk,l->il").unwrap();
+        assert_eq!(parsed.reduced_lhs_axes(), vec!['j', 'k']);
+        assert_eq!(parsed.reduced_rhs_axes(), Vec::<char>::new());
     }
 
     #[test]
@@ -638,51 +768,45 @@ mod tests {
     }
 
     #[test]
-    fn test_infer_types_rejects_dynamic_multi_contraction_axes() {
+    fn test_infer_types_accepts_dynamic_multi_contraction_axes() {
         let mut node = create_test_node("cd,dc->", 2, 2);
         let processor = EinsumProcessor;
         let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
 
-        let result = processor.infer_types(&mut node, 16, &prefs);
-        match result {
-            Err(ProcessError::Custom(message)) => {
-                assert!(message.contains("multiple shared axes"));
-                assert!(message.contains("contraction ['c', 'd']"));
-            }
-            other => panic!("Expected grouped contraction validation error, got {other:?}"),
-        }
+        assert!(matches!(
+            node.outputs[0].ty,
+            ArgType::ScalarTensor(DType::F32)
+        ));
     }
 
     #[test]
-    fn test_infer_types_rejects_dynamic_multi_batch_axes() {
+    fn test_infer_types_accepts_dynamic_multi_batch_axes() {
         let mut node = create_test_node("abij,abjk->abik", 4, 4);
         let processor = EinsumProcessor;
         let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
 
-        let result = processor.infer_types(&mut node, 16, &prefs);
-        match result {
-            Err(ProcessError::Custom(message)) => {
-                assert!(message.contains("multiple shared axes"));
-                assert!(message.contains("batch ['a', 'b']"));
+        match &node.outputs[0].ty {
+            ArgType::Tensor(tensor) => {
+                assert_eq!(tensor.rank, 4);
             }
-            other => panic!("Expected grouped batch validation error, got {other:?}"),
+            _ => panic!("Expected tensor output"),
         }
     }
 
     #[test]
-    fn test_infer_types_rejects_mixed_dynamic_batch_and_contraction_axes() {
+    fn test_infer_types_accepts_dynamic_mixed_batch_and_contraction_axes() {
         let mut node = create_test_node("bhwc,hkc->bhwk", 4, 3);
         let processor = EinsumProcessor;
         let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
 
-        let result = processor.infer_types(&mut node, 16, &prefs);
-        match result {
-            Err(ProcessError::Custom(message)) => {
-                assert!(message.contains("multiple shared axes"));
-                assert!(message.contains("batch ['h']"));
-                assert!(message.contains("contraction ['c']"));
+        match &node.outputs[0].ty {
+            ArgType::Tensor(tensor) => {
+                assert_eq!(tensor.rank, 4);
             }
-            other => panic!("Expected mixed shared-axis validation error, got {other:?}"),
+            _ => panic!("Expected tensor output"),
         }
     }
 
@@ -864,5 +988,85 @@ mod tests {
     #[test]
     fn test_output_index_not_in_inputs() {
         assert!(ParsedEinsum::parse("ij,jk->iz").is_err());
+    }
+
+    #[test]
+    fn test_expand_ellipsis_batch_matmul() {
+        let result = expand_ellipsis("...ij,...jk->...ik", &[4, 4]).unwrap();
+        // 4 - 2 explicit = 2 ellipsis dims, uses first 2 unused letters
+        // used letters: i, j, k; unused starting from 'a': a, b
+        assert_eq!(result, "abij,abjk->abik");
+    }
+
+    #[test]
+    fn test_expand_ellipsis_single_batch() {
+        let result = expand_ellipsis("...ij,...jk->...ik", &[3, 3]).unwrap();
+        // 3 - 2 = 1 ellipsis dim
+        assert_eq!(result, "aij,ajk->aik");
+    }
+
+    #[test]
+    fn test_expand_ellipsis_zero_dims() {
+        let result = expand_ellipsis("...ij,...jk->...ik", &[2, 2]).unwrap();
+        // 2 - 2 = 0 ellipsis dims
+        assert_eq!(result, "ij,jk->ik");
+    }
+
+    #[test]
+    fn test_expand_ellipsis_no_ellipsis_passthrough() {
+        let result = expand_ellipsis("ij,jk->ik", &[2, 2]).unwrap();
+        assert_eq!(result, "ij,jk->ik");
+    }
+
+    #[test]
+    fn test_expand_ellipsis_inconsistent_dims() {
+        let result = expand_ellipsis("...ij,...jk->...ik", &[4, 3]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_expand_ellipsis_implicit_form() {
+        // Implicit + ellipsis: per ONNX spec, ellipsis dims go at the beginning
+        // of the output, followed by alphabetically sorted singleton labels.
+        let result = expand_ellipsis("...ij,...jk", &[4, 4]).unwrap();
+        // j appears in both inputs (contracted), i and k are singletons
+        // Output = ellipsis_labels + singletons = "ab" + "ik" = "abik"
+        assert_eq!(result, "abij,abjk->abik");
+    }
+
+    #[test]
+    fn test_expand_ellipsis_avoids_used_labels() {
+        // a, b, c already used; ellipsis needs 2 dims -> picks d, e
+        let result = expand_ellipsis("...ab,...bc->...ac", &[4, 4]).unwrap();
+        assert_eq!(result, "deab,debc->deac");
+    }
+
+    #[test]
+    fn test_infer_types_ellipsis_batch_matmul() {
+        let mut node = create_test_node_with_shapes(
+            "...ij,...jk->...ik",
+            4,
+            4,
+            Some(vec![2, 3, 4, 5]),
+            Some(vec![2, 3, 5, 7]),
+        );
+        let processor = EinsumProcessor;
+        let prefs = OutputPreferences::new();
+        processor.infer_types(&mut node, 16, &prefs).unwrap();
+
+        match &node.outputs[0].ty {
+            ArgType::Tensor(tensor) => {
+                assert_eq!(tensor.rank, 4);
+                assert_eq!(
+                    tensor.static_shape,
+                    Some(vec![Some(2), Some(3), Some(4), Some(7)])
+                );
+            }
+            _ => panic!("Expected tensor output"),
+        }
+
+        // Verify the equation was expanded in the config
+        let config = processor.extract_config(&node, 16).unwrap();
+        assert_eq!(config.equation, "abij,abjk->abik");
     }
 }
