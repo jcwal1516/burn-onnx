@@ -14,6 +14,7 @@ include!(concat!(env!("OUT_DIR"), "/model_info.rs"));
 // Use the yolo_model module from model_info.rs
 use yolo_model::Model;
 
+/// Standard YOLO output: [1, 84, 8400] (v5, v8, v11, v12)
 #[derive(Debug, Module)]
 struct TestData<B: Backend> {
     input: Param<Tensor<B, 4>>,
@@ -22,12 +23,32 @@ struct TestData<B: Backend> {
 
 impl<B: Backend> TestData<B> {
     fn new(device: &B::Device) -> Self {
-        // YOLO: input 640x640, output [1, 84, 8400]
         Self {
             input: Initializer::Zeros.init([1, 3, 640, 640], device),
             output: Initializer::Zeros.init([1, 84, 8400], device),
         }
     }
+}
+
+/// End-to-end YOLO output: [1, 300, 6] (v10, v26)
+#[derive(Debug, Module)]
+struct TestDataE2E<B: Backend> {
+    input: Param<Tensor<B, 4>>,
+    output: Param<Tensor<B, 3>>,
+}
+
+impl<B: Backend> TestDataE2E<B> {
+    fn new(device: &B::Device) -> Self {
+        Self {
+            input: Initializer::Zeros.init([1, 3, 640, 640], device),
+            output: Initializer::Zeros.init([1, 300, 6], device),
+        }
+    }
+}
+
+/// Returns true for models with end-to-end detection output [1, 300, 6].
+fn is_e2e_model(model_name: &str) -> bool {
+    matches!(model_name, "yolov10n" | "yolo26x")
 }
 
 fn get_model_display_name(model_name: &str) -> &str {
@@ -38,6 +59,7 @@ fn get_model_display_name(model_name: &str) -> &str {
         "yolov10n" => "YOLOv10n",
         "yolo11x" => "YOLO11x",
         "yolo12x" => "YOLO12x",
+        "yolo26x" => "YOLO26x",
         _ => model_name,
     }
 }
@@ -80,6 +102,7 @@ fn main() {
         eprintln!("  - yolov10n");
         eprintln!("  - yolo11x");
         eprintln!("  - yolo12x");
+        eprintln!("  - yolo26x");
         std::process::exit(1);
     }
 
@@ -104,28 +127,30 @@ fn main() {
     // Load test data from PyTorch file
     println!("\nLoading test data from {}...", test_data_file.display());
     let start = Instant::now();
-    let mut test_data = TestData::<MyBackend>::new(&device);
-    let mut store = PytorchStore::from_file(&test_data_file);
-    test_data
-        .load_from(&mut store)
-        .expect("Failed to load test data");
+    let (input, reference_output) = if is_e2e_model(model_name) {
+        let mut test_data = TestDataE2E::<MyBackend>::new(&device);
+        let mut store = PytorchStore::from_file(&test_data_file);
+        test_data
+            .load_from(&mut store)
+            .expect("Failed to load test data");
+        (test_data.input.val(), test_data.output.val())
+    } else {
+        let mut test_data = TestData::<MyBackend>::new(&device);
+        let mut store = PytorchStore::from_file(&test_data_file);
+        test_data
+            .load_from(&mut store)
+            .expect("Failed to load test data");
+        (test_data.input.val(), test_data.output.val())
+    };
     let load_time = start.elapsed();
     println!("  Data loaded in {:.2?}", load_time);
-
-    // Get the input tensor from test data
-    let input = test_data.input.val();
-    let input_shape = input.shape();
     println!(
         "  Loaded input tensor with shape: {:?}",
-        input_shape.as_slice()
+        input.shape().as_slice()
     );
-
-    // Get the reference output from test data
-    let reference_output = test_data.output.val();
-    let reference_shape = reference_output.shape();
     println!(
         "  Loaded reference output with shape: {:?}",
-        reference_shape.as_slice()
+        reference_output.shape().as_slice()
     );
 
     // Warmup run (compiles GPU shaders, allocates buffers)
@@ -145,13 +170,17 @@ fn main() {
     let shape = output.shape();
     println!("\n  Model output shape: {:?}", shape.as_slice());
 
-    // Verify expected output shape (most YOLO models use [1, 84, 8400])
-    let expected_shape = [1, 84, 8400];
+    // Verify expected output shape
+    let expected_shape: &[usize] = if is_e2e_model(model_name) {
+        &[1, 300, 6]
+    } else {
+        &[1, 84, 8400]
+    };
     if shape.as_slice() == expected_shape {
         println!("  ✓ Output shape matches expected: {:?}", expected_shape);
     } else {
         println!(
-            "  ⚠ Note: Shape is {:?} (expected {:?} for most YOLO models)",
+            "  ⚠ Note: Shape is {:?} (expected {:?})",
             shape.as_slice(),
             expected_shape
         );

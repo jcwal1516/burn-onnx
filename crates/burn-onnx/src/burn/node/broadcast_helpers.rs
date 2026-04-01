@@ -16,6 +16,38 @@ pub(crate) fn leading_broadcast(
     quote! { (#expr).unsqueeze_dims(&[#(#dims),*]) }
 }
 
+/// Generates numpy-style broadcasting for a binary operation.
+///
+/// Expands both operands to a common shape (per-dimension max) before applying `op`.
+/// Both operands must already have the same rank (apply `leading_broadcast` first).
+///
+/// Use this for operations where Burn does not guarantee internal broadcasting
+/// (e.g. `remainder`, see <https://github.com/tracel-ai/burn/issues/4712>).
+/// For `add`/`mul`/`sub`/`div`, Burn handles broadcasting natively, so this
+/// is not needed.
+pub(crate) fn broadcast_binary_op(
+    lhs: TokenStream,
+    rhs: TokenStream,
+    output_rank: usize,
+    op: TokenStream,
+) -> TokenStream {
+    let rank_lit = proc_macro2::Literal::usize_suffixed(output_rank);
+    quote! {
+        {
+            let __lhs = #lhs;
+            let __rhs = #rhs;
+            let __lhs_dims: [usize; #rank_lit] = __lhs.dims();
+            let __rhs_dims: [usize; #rank_lit] = __rhs.dims();
+            let mut __shape = [0i64; #rank_lit];
+            #[allow(clippy::needless_range_loop)]
+            for __i in 0..#rank_lit {
+                __shape[__i] = core::cmp::max(__lhs_dims[__i] as i64, __rhs_dims[__i] as i64);
+            }
+            __lhs.expand(__shape).#op(__rhs.expand(__shape))
+        }
+    }
+}
+
 pub(crate) fn align_rhs_for_lhs_rank(
     rhs_expr: TokenStream,
     lhs_rank: usize,

@@ -6,7 +6,7 @@ use std::path::Path;
 fn main() {
     // Supported models
     let supported_models = vec![
-        "yolov5s", "yolov8n", "yolov8s", "yolov10n", "yolo11x", "yolo12x",
+        "yolov5s", "yolov8n", "yolov8s", "yolov10n", "yolo11x", "yolo12x", "yolo26x",
     ];
 
     // Get the model name from environment variable (required)

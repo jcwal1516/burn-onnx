@@ -24,17 +24,25 @@ impl NodeCodegen for onnx_ir::modulo::ModNode {
                 let lhs_rank = lhs_ty.rank();
                 let rhs_rank = rhs_ty.rank();
 
-                let mod_op = if self.config.fmod {
-                    quote! { fmod }
-                } else {
-                    quote! { remainder }
-                };
                 let lhs_bc =
                     broadcast_helpers::leading_broadcast(quote! { #lhs }, lhs_rank, rhs_rank);
                 let rhs_bc =
                     broadcast_helpers::leading_broadcast(quote! { #rhs }, rhs_rank, lhs_rank);
+
+                let expr = if self.config.fmod {
+                    quote! { #lhs_bc.fmod(#rhs_bc) }
+                } else {
+                    // Burn's remainder does not broadcast internally
+                    let output_rank = lhs_rank.max(rhs_rank);
+                    broadcast_helpers::broadcast_binary_op(
+                        lhs_bc,
+                        rhs_bc,
+                        output_rank,
+                        quote! { remainder },
+                    )
+                };
                 quote! {
-                    let #output = #lhs_bc.#mod_op(#rhs_bc);
+                    let #output = #expr;
                 }
             }
             (lhs_ty, ArgType::ScalarNative(_)) if lhs_ty.is_on_device() => {
@@ -63,11 +71,6 @@ impl NodeCodegen for onnx_ir::modulo::ModNode {
                 let rhs = scope.arg(rhs_arg);
                 let dtype_tokens = dtype.to_tokens();
                 let rhs_rank = rhs_ty.rank();
-                let mod_op = if self.config.fmod {
-                    quote! { fmod }
-                } else {
-                    quote! { remainder }
-                };
 
                 let (tensor_type, cast_as) = if dtype.is_float() {
                     (quote! { Tensor::<B, 1> }, quote! { f64 })
@@ -75,21 +78,35 @@ impl NodeCodegen for onnx_ir::modulo::ModNode {
                     (quote! { Tensor::<B, 1, burn::tensor::Int> }, quote! { i64 })
                 };
 
-                if rhs_rank > 1 {
+                let lhs_tensor = if rhs_rank > 1 {
                     let dims: Vec<isize> = (0..rhs_rank - 1).map(|i| i as isize).collect();
                     quote! {
-                        let #output = #tensor_type::from_data(
+                        #tensor_type::from_data(
                             burn::tensor::TensorData::from([#lhs as #cast_as]),
                             (&*self.device, #dtype_tokens)
-                        ).unsqueeze_dims(&[#(#dims),*]).#mod_op(#rhs);
+                        ).unsqueeze_dims(&[#(#dims),*])
                     }
                 } else {
                     quote! {
-                        let #output = #tensor_type::from_data(
+                        #tensor_type::from_data(
                             burn::tensor::TensorData::from([#lhs as #cast_as]),
                             (&*self.device, #dtype_tokens)
-                        ).#mod_op(#rhs);
+                        )
                     }
+                };
+
+                let expr = if self.config.fmod {
+                    quote! { #lhs_tensor.fmod(#rhs) }
+                } else {
+                    broadcast_helpers::broadcast_binary_op(
+                        lhs_tensor,
+                        quote! { #rhs },
+                        rhs_rank,
+                        quote! { remainder },
+                    )
+                };
+                quote! {
+                    let #output = #expr;
                 }
             }
             _ => panic!(
@@ -120,7 +137,21 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 2>, b: Tensor<B, 2>) -> Tensor<B, 2> {
-            let output = a.remainder(b);
+            let output = {
+                let __lhs = a;
+                let __rhs = b;
+                let __lhs_dims: [usize; 2usize] = __lhs.dims();
+                let __rhs_dims: [usize; 2usize] = __rhs.dims();
+                let mut __shape = [0i64; 2usize];
+                #[allow(clippy::needless_range_loop)]
+                for __i in 0..2usize {
+                    __shape[__i] = core::cmp::max(
+                        __lhs_dims[__i] as i64,
+                        __rhs_dims[__i] as i64,
+                    );
+                }
+                __lhs.expand(__shape).remainder(__rhs.expand(__shape))
+            };
             output
         }
         ");
@@ -156,7 +187,21 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 2>, b: Tensor<B, 3>) -> Tensor<B, 3> {
-            let output = (a).unsqueeze_dims(&[0isize]).remainder(b);
+            let output = {
+                let __lhs = (a).unsqueeze_dims(&[0isize]);
+                let __rhs = b;
+                let __lhs_dims: [usize; 3usize] = __lhs.dims();
+                let __rhs_dims: [usize; 3usize] = __rhs.dims();
+                let mut __shape = [0i64; 3usize];
+                #[allow(clippy::needless_range_loop)]
+                for __i in 0..3usize {
+                    __shape[__i] = core::cmp::max(
+                        __lhs_dims[__i] as i64,
+                        __rhs_dims[__i] as i64,
+                    );
+                }
+                __lhs.expand(__shape).remainder(__rhs.expand(__shape))
+            };
             output
         }
         ");
@@ -173,7 +218,21 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 3>, b: Tensor<B, 2>) -> Tensor<B, 3> {
-            let output = a.remainder((b).unsqueeze_dims(&[0isize]));
+            let output = {
+                let __lhs = a;
+                let __rhs = (b).unsqueeze_dims(&[0isize]);
+                let __lhs_dims: [usize; 3usize] = __lhs.dims();
+                let __rhs_dims: [usize; 3usize] = __rhs.dims();
+                let mut __shape = [0i64; 3usize];
+                #[allow(clippy::needless_range_loop)]
+                for __i in 0..3usize {
+                    __shape[__i] = core::cmp::max(
+                        __lhs_dims[__i] as i64,
+                        __rhs_dims[__i] as i64,
+                    );
+                }
+                __lhs.expand(__shape).remainder(__rhs.expand(__shape))
+            };
             output
         }
         ");
@@ -226,7 +285,21 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 3>, b: Tensor<B, 1>) -> Tensor<B, 3> {
-            let output = a.remainder((b).unsqueeze_dims(&[0isize, 1isize]));
+            let output = {
+                let __lhs = a;
+                let __rhs = (b).unsqueeze_dims(&[0isize, 1isize]);
+                let __lhs_dims: [usize; 3usize] = __lhs.dims();
+                let __rhs_dims: [usize; 3usize] = __rhs.dims();
+                let mut __shape = [0i64; 3usize];
+                #[allow(clippy::needless_range_loop)]
+                for __i in 0..3usize {
+                    __shape[__i] = core::cmp::max(
+                        __lhs_dims[__i] as i64,
+                        __rhs_dims[__i] as i64,
+                    );
+                }
+                __lhs.expand(__shape).remainder(__rhs.expand(__shape))
+            };
             output
         }
         ");
@@ -260,7 +333,21 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: Tensor<B, 1>, b: Tensor<B, 1>) -> Tensor<B, 1> {
-            let output = a.remainder(b);
+            let output = {
+                let __lhs = a;
+                let __rhs = b;
+                let __lhs_dims: [usize; 1usize] = __lhs.dims();
+                let __rhs_dims: [usize; 1usize] = __rhs.dims();
+                let mut __shape = [0i64; 1usize];
+                #[allow(clippy::needless_range_loop)]
+                for __i in 0..1usize {
+                    __shape[__i] = core::cmp::max(
+                        __lhs_dims[__i] as i64,
+                        __rhs_dims[__i] as i64,
+                    );
+                }
+                __lhs.expand(__shape).remainder(__rhs.expand(__shape))
+            };
             output
         }
         ");
@@ -315,15 +402,28 @@ mod tests {
             .build();
         assert_snapshot!(codegen_forward_default(&node), @r"
         pub fn forward(&self, a: f32, b: Tensor<B, 2>) -> Tensor<B, 2> {
-            let output = Tensor::<
-                B,
-                1,
-            >::from_data(
-                    burn::tensor::TensorData::from([a as f64]),
-                    (&*self.device, burn::tensor::DType::F32),
-                )
-                .unsqueeze_dims(&[0isize])
-                .remainder(b);
+            let output = {
+                let __lhs = Tensor::<
+                    B,
+                    1,
+                >::from_data(
+                        burn::tensor::TensorData::from([a as f64]),
+                        (&*self.device, burn::tensor::DType::F32),
+                    )
+                    .unsqueeze_dims(&[0isize]);
+                let __rhs = b;
+                let __lhs_dims: [usize; 2usize] = __lhs.dims();
+                let __rhs_dims: [usize; 2usize] = __rhs.dims();
+                let mut __shape = [0i64; 2usize];
+                #[allow(clippy::needless_range_loop)]
+                for __i in 0..2usize {
+                    __shape[__i] = core::cmp::max(
+                        __lhs_dims[__i] as i64,
+                        __rhs_dims[__i] as i64,
+                    );
+                }
+                __lhs.expand(__shape).remainder(__rhs.expand(__shape))
+            };
             output
         }
         ");
