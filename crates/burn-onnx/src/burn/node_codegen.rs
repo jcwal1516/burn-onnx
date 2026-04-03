@@ -173,6 +173,7 @@ impl_node_codegen_dispatch! {
     // Normalization ops
     BatchNormalization,
     LayerNormalization,
+    Lrn,
     GroupNormalization,
     InstanceNormalization,
 
