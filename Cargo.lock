@@ -782,6 +782,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn-onnx-model-checks-alexnet"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
 name = "burn-onnx-model-checks-all-minilm-l6-v2"
 version = "0.1.0"
 dependencies = [
@@ -812,6 +822,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn-onnx-model-checks-densenet121"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
 name = "burn-onnx-model-checks-depth-anything-v2"
 version = "0.1.0"
 dependencies = [
@@ -832,7 +852,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn-onnx-model-checks-inception-v1"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
+name = "burn-onnx-model-checks-inception-v2"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
 name = "burn-onnx-model-checks-mediapipe-face-detector"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
+name = "burn-onnx-model-checks-mobilenet-v2"
 version = "0.1.0"
 dependencies = [
  "burn",
@@ -862,6 +912,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn-onnx-model-checks-resnet50"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
 name = "burn-onnx-model-checks-rf-detr"
 version = "0.1.0"
 dependencies = [
@@ -873,6 +933,16 @@ dependencies = [
 
 [[package]]
 name = "burn-onnx-model-checks-rtmw3d"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
+name = "burn-onnx-model-checks-shufflenet"
 version = "0.1.0"
 dependencies = [
  "burn",
@@ -904,6 +974,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn-onnx-model-checks-squeezenet"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
 name = "burn-onnx-model-checks-stable-diffusion-xl"
 version = "0.1.0"
 dependencies = [
@@ -914,7 +994,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn-onnx-model-checks-vgg19"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
 name = "burn-onnx-model-checks-yolo"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
+name = "burn-onnx-model-checks-zfnet512"
 version = "0.1.0"
 dependencies = [
  "burn",
