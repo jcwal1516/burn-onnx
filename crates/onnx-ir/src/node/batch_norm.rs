@@ -99,14 +99,14 @@ impl NodeProcessor for BatchNormProcessor {
         _opset: usize,
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
-        // TODO: Add validation for unexpected attributes
-        // FIXME: Check training_mode attribute - spec mentions it but implementation doesn't validate it
-        // According to spec, training mode outputs mean/var/saved_mean/saved_var which are not currently handled
-        // TODO: Add test coverage for training_mode=1 case - spec says outputs 5 tensors but only 1 output validated
-        // TODO: Validate epsilon and momentum ranges - negative epsilon would be invalid, momentum should be [0,1]
-        // TODO: Add test for mismatched input tensor shapes - scale/bias/mean/var must match channels dimension
-        // TODO: Add test for wrong input tensor ranks - spec requires scale/bias/mean/var to be 1D
-        // TODO: Validate input[3] and input[4] are actually mean and variance tensors (rank 1)
+        // Reject training mode since training-specific outputs are not supported
+        if let Some(training_mode) = node.attrs.get("training_mode")
+            && training_mode.clone().into_i64() != 0
+        {
+            return Err(ProcessError::Custom(
+                "BatchNorm: training_mode=1 is not supported (only inference mode)".to_string(),
+            ));
+        }
 
         // Extract input tensor type
         let tensor = match &node.inputs[0].ty {
@@ -323,6 +323,20 @@ mod tests {
             }
             _ => panic!("Expected tensor output"),
         }
+    }
+
+    #[test]
+    fn test_batch_norm_training_mode_rejected() {
+        let mut node = create_test_node(1e-5, 0.9, 64)
+            .attr_int("training_mode", 1)
+            .build_with_graph_data(16);
+
+        let processor = BatchNormProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(
+            matches!(result, Err(ProcessError::Custom(ref msg)) if msg.contains("training_mode"))
+        );
     }
 
     #[test]

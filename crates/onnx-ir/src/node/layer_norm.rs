@@ -8,9 +8,8 @@
 //! - **Opset 17**: Initial version introducing LayerNormalization operator. Supports `axis`,
 //!   `epsilon`, and `stash_type` attributes. Includes support for optional Mean and InvStdDev outputs.
 //!
-//! **Implementation Note**: This implementation validates opset 17+ (MIN constant at line 94).
-//! Note that the current implementation requires 3 inputs (including bias) and only produces 1 output,
-//! which is more restrictive than the ONNX spec (see FIXMEs at lines 97-101).
+//! **Implementation Note**: Requires at least 2 inputs (X and Scale; Bias is optional).
+//! Accepts 1-3 outputs (Y required, optional Mean and InvStdDev).
 //!
 //! ## Missing Test Coverage
 //! - TODO: No test for optional bias (2 inputs) - Spec allows B to be optional but implementation requires 3 inputs
@@ -69,7 +68,7 @@ impl NodeProcessor for LayerNormProcessor {
             min_opset: 17,
             max_opset: None,
             inputs: InputSpec::AtLeast(2),
-            outputs: OutputSpec::Exact(1),
+            outputs: OutputSpec::Range(1, 3),
         }
     }
 
@@ -93,9 +92,6 @@ impl NodeProcessor for LayerNormProcessor {
     ) -> Result<(), ProcessError> {
         // TODO: Validate input tensor dtype is floating-point type - Type constraint T not enforced - burn/crates/onnx-ir/src/node/layer_norm.rs:101
         // TODO: Validate Scale tensor rank matches normalized dimensions - Spec requires Scale to match normalized shape - burn/crates/onnx-ir/src/node/layer_norm.rs:101
-        // FIXME: According to ONNX spec, LayerNormalization can have 1-3 outputs
-        // (Y is required, Mean and InvStdDev are optional), but we only validate for 1
-
         // Validate axis attribute before extracting config
         let weight_shape = node.inputs[1]
             .value()

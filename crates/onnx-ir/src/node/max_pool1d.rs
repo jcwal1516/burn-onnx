@@ -11,8 +11,8 @@
 //! - **Opset 11**: Added support for dilation; updated padding semantics; added optional Indices output.
 //! - **Opset 12**: Added support for int8, uint8 data types; clarified behavior with negative padding.
 //!
-//! **Implementation Note**: This implementation validates opset 11+ (see FIXME at lines 97-98).
-//! Only validates 1 output (not the optional Indices output, see FIXME at lines 103-104).
+//! **Implementation Note**: Accepts 1-2 outputs (Y required, optional Indices output).
+//! Indices output is accepted but not currently used in codegen.
 //!
 //! ## Missing Test Coverage
 //! - TODO: No test for dilation > 1 with opset < 11 - Should reject dilation in older opsets
@@ -91,7 +91,7 @@ impl NodeProcessor for MaxPool1dProcessor {
             min_opset: 1,
             max_opset: None,
             inputs: InputSpec::AtLeast(1),
-            outputs: OutputSpec::Exact(1),
+            outputs: OutputSpec::Range(1, 2),
         }
     }
 
@@ -103,9 +103,6 @@ impl NodeProcessor for MaxPool1dProcessor {
     ) -> Result<(), ProcessError> {
         // TODO: Validate input tensor is 3D (N x C x L) - Lower or higher rank should be rejected - burn/crates/onnx-ir/src/node/max_pool1d.rs:105
         // TODO: Validate input dtype - int8/uint8 support requires opset 12+ - burn/crates/onnx-ir/src/node/max_pool1d.rs:105
-
-        // FIXME: Spec mentions optional second output "Indices" but we only validate 1 output.
-        // Should validate that output count is 1 or 2, not exactly 1.
 
         // Validate attributes before extracting config
         // TODO: Validate required kernel_shape attribute is present - Missing kernel_shape should cause error - burn/crates/onnx-ir/src/node/max_pool1d.rs:117

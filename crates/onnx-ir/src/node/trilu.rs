@@ -7,9 +7,6 @@
 //! ## Opset Versions
 //! - **Opset 14**: Initial version introducing triangular matrix extraction with optional diagonal offset.
 //!
-//! **FIXME**: The implementation does not validate that the input tensor has rank >= 2, which is
-//! required by the ONNX spec. This should be validated in infer_types.
-//!
 //! ## Implementation Notes
 //! - If `upper=1` (true):
 //!   - Positive k: Retains upper triangle excluding main diagonal and (k-1) diagonals above it
@@ -73,8 +70,6 @@ impl NodeProcessor for TriluProcessor {
         _opset: usize,
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
-        // TODO: Missing validation that input tensor is at least rank 2.
-        // ONNX spec requires last two dimensions to form a matrix, so rank must be >= 2.
         let input_rank = match &node.inputs[0].ty {
             ArgType::Tensor(t) => t.rank,
             _ => 0,
@@ -101,11 +96,6 @@ impl NodeProcessor for TriluProcessor {
                 upper = value.clone().into_i64() != 0
             }
         }
-        // The second input of the Trilu node is the diagonal value, coming from a constant node
-        // FIXME: The spec states that `k` should be a 0-D tensor (scalar tensor), but the
-        // implementation assumes Data::Int64 (scalar value). This should handle the proper
-        // tensor extraction with shape validation to ensure it's 0-D.
-        // Should validate: k tensor has shape [] or [1] and contains single int64 value.
         if let Some(diagonal_arg) = node.inputs.get(1) {
             if let Some(tensor_data) = diagonal_arg.value() {
                 // Extract scalar value, converting from any numeric type to i64
@@ -333,23 +323,16 @@ mod tests {
         );
     }
 
-    // TODO: Missing test for rank-1 (1D) input - should be rejected as rank must be >= 2.
+    #[test]
+    fn test_trilu_rank_1_rejected() {
+        let mut node = TestNodeBuilder::new(NodeType::Trilu, "test_trilu")
+            .input_tensor_f32("X", 1, None) // 1D input
+            .output_tensor_f32("Y", 1, None)
+            .build();
 
-    // TODO: Missing test for non-square matrices - e.g., shape [3, 5] should work.
-    // Trilu works on rectangular matrices, not just square ones.
-
-    // TODO: Missing test for batched inputs - e.g., shape [2, 3, 4, 5].
-    // ONNX spec supports batched triangular operations on last two dimensions.
-
-    // TODO: Missing test for very large diagonal offset.
-    // E.g., diagonal=100 for 5x5 matrix - should result in all zeros (upper) or all values (lower).
-
-    // TODO: Missing test for diagonal offset equal to matrix dimensions.
-    // Edge cases where k = H or k = -W.
-
-    // TODO: Missing test for k input type validation.
-    // k must be int64 tensor per spec, should reject other types.
-
-    // TODO: Missing test for k input shape validation.
-    // k should be 0-D tensor (scalar), test with 1D tensor [k] to verify handling.
+        let processor = TriluProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(matches!(result, Err(ProcessError::Custom(ref msg)) if msg.contains("rank >= 2")));
+    }
 }

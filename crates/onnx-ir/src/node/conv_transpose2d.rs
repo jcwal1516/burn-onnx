@@ -10,8 +10,7 @@
 //!
 //! ## Implementation Notes
 //! - Weight tensor layout: Implementation expects [out_channels, in_channels, kernel_h, kernel_w]
-//!   (see FIXME at line 188 regarding ONNX spec clarification)
-//! - Padding order: See FIXME at line 163 regarding padding order verification
+//! - Padding order: ONNX `pads` format is [H_begin, W_begin, H_end, W_end]
 
 use derive_new::new;
 use onnx_ir_derive::NodeBuilder;
@@ -131,11 +130,8 @@ impl NodeProcessor for Convtranspose2dProcessor {
             }
         }
 
-        // Check the pads are symmetric.
-        // FIXME: Padding order appears to be [top, left, bottom, right] per ONNX spec,
-        // but variable names here suggest [left, top, right, bottom]
-        // Verify the correct order and update variable names accordingly
-        let [left, top, right, bottom] = [pads[0], pads[1], pads[2], pads[3]];
+        // ONNX pads format: [H_begin, W_begin, H_end, W_end] = [top, left, bottom, right]
+        let [top, left, bottom, right] = [pads[0], pads[1], pads[2], pads[3]];
         if left < 0 || top < 0 || right < 0 || bottom < 0 {
             return Err(ProcessError::Custom(
                 "Negative pad values are not supported".to_string(),

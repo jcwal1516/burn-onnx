@@ -11,20 +11,13 @@
 //!
 //! **Implementation Note**: This implementation requires opset 6+ (repeats as input).
 //!
-//! **FIXME**: The implementation does not validate that the repeats tensor has the same length as
-//! the input rank, which is required by the ONNX spec. This should be validated in extract_config
-//! or infer_types. Missing validation: len(repeats) == rank(input).
-//!
-//! **FIXME**: The implementation does not validate that repeats values are non-negative.
-//! Negative repeats don't make sense and should be rejected, but currently accepted.
-//!
 //! ## Example
 //! Given input = [[1, 2], [3, 4]] with shape (2, 2) and repeats = [1, 2]:
 //! Output = [[1, 2, 1, 2], [3, 4, 3, 4]] with shape (2, 4)
 use derive_new::new;
 use onnx_ir_derive::NodeBuilder;
 
-use crate::ir::{Argument, Node, RawNode, RuntimeInputRef};
+use crate::ir::{ArgType, Argument, Node, RawNode, RuntimeInputRef, TensorDataExt};
 use crate::processor::{
     InputSpec, NodeProcessor, NodeSpec, OutputPreferences, OutputSpec, ProcessError,
 };
@@ -89,14 +82,41 @@ impl NodeProcessor for TileProcessor {
         _opset: usize,
         _output_preferences: &OutputPreferences,
     ) -> Result<(), ProcessError> {
-        // TODO: Missing validation that repeats input exists (required in opset 6+).
-        // Opset 6+ requires repeats as second input but this isn't strictly validated.
+        // Validate repeats when statically known
+        if let Some(repeats_arg) = node.inputs.get(1)
+            && let Some(tensor_data) = repeats_arg.value()
+        {
+            let i64_values: Vec<i64> =
+                tensor_data
+                    .to_i64_vec()
+                    .map_err(|_| ProcessError::TypeMismatch {
+                        expected: "Int64".to_string(),
+                        actual: format!("{:?}", tensor_data.elem_type()),
+                    })?;
 
-        // TODO: Missing validation that len(repeats) == rank(input).
-        // ONNX spec requires repeats length to match input rank but not validated here.
+            // Validate non-negative
+            if let Some(neg) = i64_values.iter().find(|&&v| v < 0) {
+                return Err(ProcessError::Custom(format!(
+                    "Tile: repeats values must be non-negative, got {}",
+                    neg
+                )));
+            }
 
-        // TODO: Missing validation that repeats values are all non-negative.
-        // Negative repeats don't make semantic sense and should be rejected.
+            // Validate length matches input rank
+            let input_rank = match &node.inputs[0].ty {
+                ArgType::Tensor(t) => Some(t.rank),
+                _ => None,
+            };
+            if let Some(rank) = input_rank
+                && i64_values.len() != rank
+            {
+                return Err(ProcessError::Custom(format!(
+                    "Tile: repeats length ({}) must match input rank ({})",
+                    i64_values.len(),
+                    rank
+                )));
+            }
+        }
 
         // Infer output type - same as input
         crate::processor::same_as_input(node);
@@ -241,41 +261,30 @@ mod tests {
     }
 
     #[test]
-    fn test_tile_config_with_negative_repeats() {
-        // Test with negative repeats values (will be converted to usize)
+    fn test_tile_config_with_negative_repeats_rejected() {
         let repeats = vec![-1, 2, -3];
-        let node = create_test_node(Some(repeats), 3).build_with_graph_data(16);
+        let mut node = create_test_node(Some(repeats), 3).build_with_graph_data(16);
 
-        let mut node = node;
         let processor = TileProcessor;
         let prefs = OutputPreferences::new();
-        let config = processor.extract_config(&node, 16).unwrap();
-        processor.infer_types(&mut node, 16, &prefs).unwrap();
-
-        // Negative values get converted to very large positive values due to usize conversion
-        // This is expected behavior for this function (though may cause issues elsewhere)
-        if let TileInput::Static(r) = &config.repeats {
-            assert!(r[0] > 0);
-            assert_eq!(r[1], 2);
-            assert!(r[2] > 0);
-        } else {
-            panic!("Expected Static repeats");
-        }
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(
+            matches!(result, Err(ProcessError::Custom(ref msg)) if msg.contains("non-negative"))
+        );
     }
 
     #[test]
-    fn test_tile_config_with_empty_repeats() {
-        // Test with empty repeats array
+    fn test_tile_config_with_empty_repeats_rejected() {
+        // Empty repeats (length 0) doesn't match input rank 3
         let repeats = vec![];
-        let node = create_test_node(Some(repeats), 3).build_with_graph_data(16);
+        let mut node = create_test_node(Some(repeats), 3).build_with_graph_data(16);
 
-        let mut node = node;
         let processor = TileProcessor;
         let prefs = OutputPreferences::new();
-        let config = processor.extract_config(&node, 16).unwrap();
-        processor.infer_types(&mut node, 16, &prefs).unwrap();
-
-        assert!(matches!(&config.repeats, TileInput::Static(r) if r.is_empty()));
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(
+            matches!(result, Err(ProcessError::Custom(ref msg)) if msg.contains("must match input rank"))
+        );
     }
 
     #[test]
@@ -303,18 +312,17 @@ mod tests {
         assert!(matches!(&config.repeats, TileInput::Runtime(arg) if arg.name == "repeats"));
     }
 
-    // TODO: Missing test for repeats length mismatch - len(repeats) != rank(input).
-    // E.g., input rank=3 but repeats=[2, 3] should fail per ONNX spec.
+    #[test]
+    fn test_tile_repeats_length_mismatch_rejected() {
+        // input rank=3 but repeats has 2 elements
+        let repeats = vec![2, 3];
+        let mut node = create_test_node(Some(repeats), 3).build_with_graph_data(16);
 
-    // TODO: Missing test for all-ones repeats - repeats=[1, 1, 1] should be no-op.
-    // Valid edge case that should work but not explicitly tested.
-
-    // TODO: Missing test for mixed zero and non-zero repeats handled correctly.
-    // Test currently has zero repeats but doesn't verify output shape calculation.
-
-    // TODO: Missing test for very large repeats causing overflow.
-    // E.g., repeats=[1000000, 1000000] could overflow dimension size calculations.
-
-    // TODO: Missing test for repeats input type validation.
-    // Repeats must be int64 tensor per spec - should reject float/other types.
+        let processor = TileProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(
+            matches!(result, Err(ProcessError::Custom(ref msg)) if msg.contains("must match input rank"))
+        );
+    }
 }

@@ -8,9 +8,8 @@
 //! - **Opset 10**: Initial version introducing quantized integer matrix multiplication with zero-point
 //!   support. Outputs int32 results from int8/uint8 inputs.
 //!
-//! **Implementation Note**: This implementation validates opset 10+ (see line 37).
-//! The spec allows 2-4 inputs (optional zero-point tensors), but implementation only validates minimum
-//! of 2 inputs (see FIXME at line 44).
+//! **Implementation Note**: This implementation validates opset 10+. Accepts 2-4 inputs
+//! (A, B, optional a_zero_point, optional b_zero_point).
 
 use onnx_ir_derive::NodeBuilder;
 
@@ -46,16 +45,12 @@ impl NodeProcessor for MatMulIntegerProcessor {
             });
         }
 
-        // FIXME: Spec mentions 2-4 inputs (A, B, a_zero_point optional, b_zero_point optional)
-        // but we only validate minimum 2 inputs. Should validate that we don't have more than 4 inputs
-        // and that the optional zero_point inputs have correct types (T1/T2).
-
-        // Validate input count
-        if node.inputs.len() < 2 {
-            return Err(ProcessError::InvalidInputCount {
-                expected: 2,
-                actual: node.inputs.len(),
-            });
+        // Validate input count: 2-4 inputs (A, B, optional a_zero_point, optional b_zero_point)
+        if node.inputs.len() < 2 || node.inputs.len() > 4 {
+            return Err(ProcessError::Custom(format!(
+                "MatMulInteger: expected 2-4 inputs, got {}",
+                node.inputs.len()
+            )));
         }
 
         // Validate output count
@@ -144,6 +139,40 @@ mod tests {
             }
             _ => panic!("Expected tensor output"),
         }
+    }
+
+    #[test]
+    fn test_too_many_inputs_rejected() {
+        let mut node = create_test_node(2, 2);
+        // Add 3 extra inputs (a_zero_point, b_zero_point, and one too many)
+        node.inputs.push(
+            TestNodeBuilder::new(NodeType::Identity, "tmp")
+                .input_tensor_i32("a_zp", 1, None)
+                .build()
+                .inputs
+                .pop()
+                .unwrap(),
+        );
+        node.inputs.push(
+            TestNodeBuilder::new(NodeType::Identity, "tmp")
+                .input_tensor_i32("b_zp", 1, None)
+                .build()
+                .inputs
+                .pop()
+                .unwrap(),
+        );
+        node.inputs.push(
+            TestNodeBuilder::new(NodeType::Identity, "tmp")
+                .input_tensor_i32("extra", 1, None)
+                .build()
+                .inputs
+                .pop()
+                .unwrap(),
+        );
+        let processor = MatMulIntegerProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(matches!(result, Err(ProcessError::Custom(ref msg)) if msg.contains("2-4 inputs")));
     }
 
     #[test]

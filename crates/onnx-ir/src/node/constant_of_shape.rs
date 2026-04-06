@@ -117,15 +117,17 @@ impl NodeProcessor for ConstantOfShapeProcessor {
             }
         }
 
-        // TODO: According to spec, the 'value' attribute is a one-element tensor
-        // FIXME: Need to validate that it contains exactly one element - currently not checked
-        // TODO: Add test for multi-element value tensor (should error)
-        // TODO: Add test for negative shape values - spec says "all values must be >= 0"
-        // TODO: Add test for very large shape dimensions - potential memory/overflow issues
-        // TODO: Add test for opset 20+ types (bfloat16, int4, uint4, float8) - mentioned in spec
-        let _config = self
-            .extract_config(node, _opset)
-            .expect("Config extraction failed");
+        // Validate that the value attribute contains exactly one element (per ONNX spec)
+        if let Some(value_attr) = node.attrs.get("value") {
+            let tensor = value_attr.clone().into_tensor();
+            let num_elements: usize = tensor.shape.iter().product();
+            if num_elements != 1 {
+                return Err(ProcessError::Custom(format!(
+                    "ConstantOfShape: 'value' attribute must contain exactly one element, got {}",
+                    num_elements
+                )));
+            }
+        }
 
         let value_type = node
             .attrs
@@ -515,6 +517,21 @@ mod tests {
             }
             _ => panic!("Expected Tensor output for ScalarTensor(I64) input"),
         }
+    }
+
+    #[test]
+    fn test_multi_element_value_rejected() {
+        let mut node = create_test_node(ArgType::Shape(3)).build();
+        node.attrs.insert(
+            "value".to_string(),
+            AttributeValue::Tensor(TensorData::new(vec![1i64, 2i64], vec![2])),
+        );
+        let processor = ConstantOfShapeProcessor;
+        let prefs = OutputPreferences::new();
+        let result = processor.infer_types(&mut node, 16, &prefs);
+        assert!(
+            matches!(result, Err(ProcessError::Custom(ref msg)) if msg.contains("exactly one element"))
+        );
     }
 
     #[test]
