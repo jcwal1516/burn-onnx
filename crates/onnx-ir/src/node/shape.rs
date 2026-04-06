@@ -10,10 +10,6 @@
 //! - `end` attribute (int, optional, opset 15+): Ending dimension (exclusive) for partial shape extraction.
 //!   If omitted, defaults to rank. Negative values count from the end. Values are clamped to [0, rank].
 //!
-//! **FIXME**: The spec mentions values should be clamped to [0, rank], but the implementation does
-//! not perform clamping. Negative indices are normalized but out-of-bounds positive values are not
-//! clamped, which could lead to incorrect results or panics.
-//!
 //! ## Opset Versions
 //! - **Opset 1-14**: Outputs full shape as 1D int64 tensor (no attributes).
 //! - **Opset 15**: Added `start` and `end` attributes to enable partial shape extraction,
@@ -98,7 +94,7 @@ impl NodeProcessor for ShapeProcessor {
         Ok(())
     }
 
-    fn extract_config(&self, node: &RawNode, _opset: usize) -> Result<Self::Config, ProcessError> {
+    fn extract_config(&self, node: &RawNode, opset: usize) -> Result<Self::Config, ProcessError> {
         // Extract the rank/dimension count from the input
         let rank = match &node.inputs[0].ty {
             ArgType::Tensor(tensor) => tensor.rank,
@@ -112,15 +108,17 @@ impl NodeProcessor for ShapeProcessor {
             }
         };
 
-        // Extract attributes
+        // Extract start/end attributes (opset 15+ only)
         let mut start_dim: i64 = 0;
         let mut end_dim: i64 = rank as i64;
 
-        for (key, value) in node.attrs.iter() {
-            match key.as_str() {
-                "start" => start_dim = value.clone().into_i64(),
-                "end" => end_dim = value.clone().into_i64(),
-                _ => {}
+        if opset >= 15 {
+            for (key, value) in node.attrs.iter() {
+                match key.as_str() {
+                    "start" => start_dim = value.clone().into_i64(),
+                    "end" => end_dim = value.clone().into_i64(),
+                    _ => {}
+                }
             }
         }
 
@@ -132,10 +130,10 @@ impl NodeProcessor for ShapeProcessor {
             end_dim += rank as i64;
         }
 
-        // TODO: Missing clamping to [0, rank] as per ONNX spec - out-of-bounds positive values are not clamped.
-        // The spec explicitly states: "Values are clamped to [0, rank]" but implementation only normalizes negative indices.
-        // This could lead to panics or incorrect results when start/end exceed rank.
-        // Should add: start_dim = start_dim.max(0).min(rank); end_dim = end_dim.max(0).min(rank);
+        // Clamp to [0, rank] per ONNX spec, then ensure end >= start
+        let rank_i64 = rank as i64;
+        start_dim = start_dim.max(0).min(rank_i64);
+        end_dim = end_dim.max(start_dim).min(rank_i64);
 
         // Calculate dimensions
         let start = start_dim as usize;
@@ -280,15 +278,64 @@ mod tests {
         ));
     }
 
-    // TODO: Missing test for start/end clamping behavior - ONNX spec requires clamping to [0, rank].
-    // Need tests for: start > rank, end > rank, start < -rank, end < -rank.
-    // These edge cases are mentioned in spec but not validated or tested.
+    #[test]
+    fn test_shape_clamp_start_exceeds_rank() {
+        // start=10 on rank-4 tensor should clamp to 4
+        let node = create_test_node(Some(10), None, 4);
+        let processor = ShapeProcessor;
+        let config = processor.extract_config(&node, 16).unwrap();
+        assert_eq!(config.start, 4);
+        assert_eq!(config.end, 4);
+    }
 
-    // TODO: Missing test for opset 15 features - start and end attributes were added in opset 15.
-    // Need test to verify behavior when opset < 15 (should not have start/end attributes).
+    #[test]
+    fn test_shape_clamp_end_exceeds_rank() {
+        // end=10 on rank-4 tensor should clamp to 4
+        let node = create_test_node(None, Some(10), 4);
+        let processor = ShapeProcessor;
+        let config = processor.extract_config(&node, 16).unwrap();
+        assert_eq!(config.start, 0);
+        assert_eq!(config.end, 4);
+    }
 
-    // TODO: Missing test for zero-rank tensors (scalars) - what should Shape return for rank-0 input?
-    // ONNX spec doesn't explicitly cover this edge case.
+    #[test]
+    fn test_shape_clamp_both_exceed_rank() {
+        let node = create_test_node(Some(5), Some(10), 4);
+        let processor = ShapeProcessor;
+        let config = processor.extract_config(&node, 16).unwrap();
+        assert_eq!(config.start, 4);
+        assert_eq!(config.end, 4);
+    }
+
+    #[test]
+    fn test_shape_clamp_negative_below_neg_rank() {
+        // start=-10 on rank-4: -10+4=-6, clamped to 0
+        let node = create_test_node(Some(-10), Some(-5), 4);
+        let processor = ShapeProcessor;
+        let config = processor.extract_config(&node, 16).unwrap();
+        assert_eq!(config.start, 0);
+        assert_eq!(config.end, 0);
+    }
+
+    #[test]
+    fn test_shape_clamp_start_greater_than_end() {
+        // start=3, end=1 on rank-4: end clamped up to start, yielding empty slice
+        let node = create_test_node(Some(3), Some(1), 4);
+        let processor = ShapeProcessor;
+        let config = processor.extract_config(&node, 16).unwrap();
+        assert_eq!(config.start, 3);
+        assert_eq!(config.end, 3);
+    }
+
+    #[test]
+    fn test_shape_opset_below_15_ignores_start_end() {
+        // Opset 14: start/end attributes should be ignored, full shape returned
+        let node = create_test_node(Some(1), Some(3), 4);
+        let processor = ShapeProcessor;
+        let config = processor.extract_config(&node, 14).unwrap();
+        assert_eq!(config.start, 0);
+        assert_eq!(config.end, 4);
+    }
 
     #[test]
     fn test_shape_output_type() {
