@@ -315,6 +315,7 @@ fn add_all_inputs(model_gen: &mut ModelGen) {
         .input("tests/matmulinteger/matmulinteger.onnx")
         .input("tests/matmulinteger/matmulinteger_ranks.onnx")
         .input("tests/matmul/matmul_ranks.onnx")
+        .input("tests/matmul/matmul_scalar_add.onnx")
         .input("tests/max/max.onnx")
         .input("tests/max/max_broadcast.onnx")
         .input("tests/maxpool1d/maxpool1d.onnx")
