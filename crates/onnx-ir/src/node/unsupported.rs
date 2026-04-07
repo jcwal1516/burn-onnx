@@ -66,7 +66,6 @@ define_placeholder_node! {
     MelWeightMatrixNode,
     MultinomialNode,
     NegativeLogLikelihoodLossNode,
-    NonMaxSuppressionNode,
     OptionalNode,
     OptionalGetElementNode,
     OptionalHasElementNode,

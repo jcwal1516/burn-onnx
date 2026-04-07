@@ -98,6 +98,15 @@ pub trait NodeCodegen: std::fmt::Debug {
     /// Register the necessary imports.
     fn register_imports(&self, _imports: &mut BurnImports) {}
 
+    /// Additional trait bounds required on the backend generic `B`.
+    ///
+    /// Returns fully-qualified trait paths (e.g. `"burn::vision::VisionBackend"`).
+    /// When a bound implies `Backend` (like `VisionBackend`), it subsumes the default
+    /// `Backend` bound in the generated code.
+    fn extra_trait_bounds(&self) -> Vec<String> {
+        vec![]
+    }
+
     /// (Optional) Declare the type and initialization of the field
     ///
     /// # Notes

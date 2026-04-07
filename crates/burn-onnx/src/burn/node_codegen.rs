@@ -46,6 +46,13 @@ macro_rules! impl_node_codegen_dispatch {
                 }
             }
 
+            fn extra_trait_bounds(&self) -> Vec<String> {
+                match self {
+                    $(Node::$variant(n) => n.extra_trait_bounds(),)*
+                    _ => vec![],
+                }
+            }
+
             fn collect_snapshots(&self, field_name: &str) -> Vec<TensorSnapshot> {
                 match self {
                     $(Node::$variant(n) => n.collect_snapshots(field_name),)*
@@ -242,6 +249,7 @@ impl_node_codegen_dispatch! {
 
     // Special ops
     Attention,
+    NonMaxSuppression,
 
     // Control flow ops
     If,

@@ -293,6 +293,10 @@ impl GraphState {
 
     /// Get the value of an input from the original input name. Used during proto conversion
     pub(crate) fn init_in(&self, proto_str: &str) -> Argument {
+        if proto_str.is_empty() {
+            return Argument::from_name("");
+        }
+
         // Sanitize the ONNX name to match our internal sanitized names
         let sanitized = crate::proto_conversion::sanitize_name(proto_str);
 
@@ -699,5 +703,15 @@ mod tests {
 
         let arg_b = state.init_in("b_0");
         assert!(matches!(arg_b.ty, ArgType::Tensor(ref t) if t.rank == 3));
+    }
+
+    #[test]
+    fn init_in_treats_empty_name_as_optional_input() {
+        let state = GraphState::new(&[], &[], &[], &[]);
+
+        let arg = state.init_in("");
+
+        assert!(arg.is_optional());
+        assert!(arg.name.is_empty());
     }
 }

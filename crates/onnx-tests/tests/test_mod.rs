@@ -107,6 +107,8 @@ pub mod mish;
 pub mod r#mod;
 pub mod mul;
 pub mod neg;
+#[cfg(any(feature = "test-wgpu", feature = "test-tch", feature = "test-metal"))]
+pub mod non_max_suppression;
 pub mod nonzero;
 pub mod not;
 pub mod one_hot;
