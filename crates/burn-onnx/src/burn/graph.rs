@@ -189,6 +189,7 @@ impl BurnGraph {
         let codegen_struct = self.codegen_struct();
         let codegen_new = self.codegen_new();
         let codegen_forward = self.codegen_forward();
+        let bb = self.backend_bound();
 
         let maybe_blank = match self.blank_spaces {
             true => quote! {
@@ -225,7 +226,7 @@ impl BurnGraph {
 
             #codegen_default
 
-            impl<B: Backend> Model<B> {
+            impl<B: #bb> Model<B> {
                 #codegen_new
 
                 #maybe_blank
@@ -237,6 +238,7 @@ impl BurnGraph {
 
     /// Generate partitioned code with submodule structs.
     fn codegen_partitioned(self, partition: Partition) -> TokenStream {
+        let bb = self.backend_bound();
         let maybe_blank = match self.blank_spaces {
             true => quote! { _blank_!(); },
             false => quote! {},
@@ -346,13 +348,13 @@ impl BurnGraph {
 
             let submodule_def = quote! {
                 #[derive(Module, Debug)]
-                pub struct #struct_name<B: Backend> {
+                pub struct #struct_name<B: #bb> {
                     #(#struct_fields)*
                     phantom: core::marker::PhantomData<B>,
                     device: burn::module::Ignored<B::Device>,
                 }
 
-                impl<B: Backend> #struct_name<B> {
+                impl<B: #bb> #struct_name<B> {
                     #[allow(unused_variables)]
                     pub fn new(device: &B::Device) -> Self {
                         #field_init_code
@@ -437,7 +439,7 @@ impl BurnGraph {
             #maybe_blank
 
             #[derive(Module, Debug)]
-            pub struct Model<B: Backend> {
+            pub struct Model<B: #bb> {
                 #(#submodule_field_decls)*
                 phantom: core::marker::PhantomData<B>,
                 device: burn::module::Ignored<B::Device>,
@@ -446,7 +448,7 @@ impl BurnGraph {
 
             #codegen_default
 
-            impl<B: Backend> Model<B> {
+            impl<B: #bb> Model<B> {
                 #[allow(unused_variables)]
                 pub fn new(device: &B::Device) -> Self {
                     #(#submodule_field_inits)*
@@ -475,6 +477,25 @@ impl BurnGraph {
         self.nodes
             .iter()
             .for_each(|node| NodeCodegen::register_imports(node, &mut self.imports));
+    }
+
+    /// Compute the backend trait bound tokens based on node requirements.
+    ///
+    /// If any node requests `VisionBackend`, the bound becomes
+    /// `burn::vision::VisionBackend` (which implies `Backend`).
+    /// Otherwise, the default `Backend` bound is used.
+    fn backend_bound(&self) -> TokenStream {
+        let needs_vision = self.nodes.iter().any(|node| {
+            NodeCodegen::extra_trait_bounds(node)
+                .iter()
+                .any(|b| b == "burn::vision::VisionBackend")
+        });
+
+        if needs_vision {
+            quote! { burn::vision::VisionBackend }
+        } else {
+            quote! { Backend }
+        }
     }
 
     /// Build the scope state to make sure tensor clones are added where needed.
@@ -527,6 +548,7 @@ impl BurnGraph {
         self.imports.register("burn_store::ModuleSnapshot");
         self.imports.register("burn::tensor::Bytes");
 
+        let bb = self.backend_bound();
         let mut statics = quote! {};
         let mut default_impl = quote! {};
         let mut extra_loaders = quote! {};
@@ -535,7 +557,7 @@ impl BurnGraph {
             LoadStrategy::File => {
                 let file = file.to_str().unwrap();
                 default_impl = quote! {
-                    impl<B: Backend> Default for Model<B> {
+                    impl<B: #bb> Default for Model<B> {
                         fn default() -> Self {
                             Self::from_file(#file, &Default::default())
                         }
@@ -569,7 +591,7 @@ impl BurnGraph {
                     _blank_!();
                 };
                 default_impl = quote! {
-                    impl<B: Backend> Default for Model<B> {
+                    impl<B: #bb> Default for Model<B> {
                         fn default() -> Self {
                             Self::from_embedded(&Default::default())
                         }
@@ -602,7 +624,7 @@ impl BurnGraph {
             _blank_!();
             #statics
             #default_impl
-            impl<B: Backend> Model<B> {
+            impl<B: #bb> Model<B> {
                 #extra_loaders
                 /// Load model weights from in-memory bytes.
                 ///
@@ -639,9 +661,10 @@ impl BurnGraph {
             device: burn::module::Ignored<B::Device>,
         });
 
+        let bb = self.backend_bound();
         quote! {
             #[derive(Module, Debug)]
-            pub struct Model<B: Backend> {
+            pub struct Model<B: #bb> {
                 #body
             }
         }
@@ -1070,6 +1093,9 @@ mod tests {
     use super::*;
     use burn::tensor::DType;
     use onnx_ir::node::abs::AbsNodeBuilder;
+    use onnx_ir::non_max_suppression::{
+        BoxFormat, NonMaxSuppressionConfig, NonMaxSuppressionNodeBuilder,
+    };
     use rust_format::{Config, Formatter, PostProcess, PrettyPlease};
 
     fn format_tokens(tokens: TokenStream) -> String {
@@ -1244,5 +1270,47 @@ mod tests {
         assert!(!code.contains("from_bytes"));
         assert!(!code.contains("from_embedded"));
         assert!(!code.contains("impl<B: Backend> Default for Model<B>"));
+    }
+
+    #[test]
+    fn nms_node_uses_vision_backend_bound() {
+        let mut graph = BurnGraph::default();
+
+        let config = NonMaxSuppressionConfig::new(BoxFormat::Corner);
+        let node = NonMaxSuppressionNodeBuilder::new("nms")
+            .input_tensor("boxes", 3, DType::F32)
+            .input_tensor("scores", 3, DType::F32)
+            .input_scalar("max_output_boxes", DType::I64)
+            .input_scalar("iou_threshold", DType::F32)
+            .input_scalar("score_threshold", DType::F32)
+            .output_tensor("selected_indices", 2, DType::I64)
+            .config(config)
+            .build();
+
+        graph.register(Node::NonMaxSuppression(node));
+        graph.register_input_output(
+            vec![
+                "boxes".into(),
+                "scores".into(),
+                "max_output_boxes".into(),
+                "iou_threshold".into(),
+                "score_threshold".into(),
+            ],
+            vec!["selected_indices".into()],
+            &[],
+            &[],
+        );
+
+        let code = format_tokens(graph.codegen());
+
+        assert!(
+            code.contains("B: burn::vision::VisionBackend"),
+            "NMS graph should use VisionBackend bound, got:\n{}",
+            &code[..code.len().min(500)]
+        );
+        assert!(
+            !code.contains("B: Backend>"),
+            "NMS graph should not have plain Backend bound"
+        );
     }
 }

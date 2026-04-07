@@ -121,6 +121,7 @@ pub mod mean;
 pub mod min;
 pub mod mish;
 pub mod modulo;
+pub mod non_max_suppression;
 pub mod nonzero;
 pub mod one_hot;
 pub mod or;

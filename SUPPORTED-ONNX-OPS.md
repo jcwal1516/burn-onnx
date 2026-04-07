@@ -126,7 +126,7 @@ functionality.
 | [Multinomial][108]               | ❌             | ❌           |
 | [Neg][109]                       | ✅             | ✅           |
 | [NegativeLogLikelihoodLoss][110] | ❌             | ❌           |
-| [NonMaxSuppression][112]         | ❌             | ❌           |
+| [NonMaxSuppression][112]         | ✅             | ✅¹          |
 | [NonZero][113]                   | ✅             | ✅           |
 | [Not][114]                       | ✅             | ✅           |
 | [OneHot][115]                    | ✅             | ✅           |
@@ -215,6 +215,8 @@ functionality.
 | [Where][191]                     | ✅             | ✅           |
 | [Xor][192]                       | ✅             | ✅           |
 | [Unsqueeze][193]                 | ✅             | ✅           |
+
+¹ NonMaxSuppression: delegates to `burn-vision`'s `Nms` trait per batch/class. Both `center_point_box=0` (corner) and `center_point_box=1` (center) formats are supported. Models using this op require `B: VisionBackend` and the `burn/vision` feature. Omitted optional inputs (`max_output_boxes_per_class`, `iou_threshold`, `score_threshold`) are covered by integration tests.
 
 [1]: https://onnx.ai/onnx/operators/onnx__Abs.html "ONNX Abs"
 [2]: https://onnx.ai/onnx/operators/onnx__Acos.html "ONNX Acos"

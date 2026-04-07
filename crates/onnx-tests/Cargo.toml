@@ -6,14 +6,15 @@ license.workspace = true
 
 [features]
 default = ["test-ndarray"]
-test-wgpu = ["burn/wgpu"]
-test-ndarray = ["burn/ndarray"]
-test-tch = ["burn/tch"]
-test-metal = ["burn/metal"]
-test-candle = ["burn/candle"]
+test-wgpu = ["burn/wgpu", "burn/vision", "burn-vision/cubecl-backend"]
+test-ndarray = ["burn/ndarray", "burn/vision", "burn-vision/ndarray"]
+test-tch = ["burn/tch", "burn/vision", "burn-vision/tch"]
+test-metal = ["burn/metal", "burn/vision", "burn-vision/cubecl-backend"]
+test-candle = ["burn/candle", "burn/vision"]
 
 [dev-dependencies]
 burn = { workspace = true }
+burn-vision = { workspace = true }
 burn-store = { workspace = true, features = ["std", "burnpack"] }
 serde = { workspace = true }
 float-cmp = { workspace = true }
