@@ -802,6 +802,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "burn-onnx-model-checks-arcface"
+version = "0.1.0"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "model-checks-common",
+]
+
+[[package]]
 name = "burn-onnx-model-checks-clip-vit-b-32-text"
 version = "0.1.0"
 dependencies = [

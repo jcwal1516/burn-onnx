@@ -80,6 +80,13 @@ For detailed usage instructions, see the
 | [onnx-inference](examples/onnx-inference)                     | Basic ONNX model inference          |
 | [image-classification-web](examples/image-classification-web) | WebAssembly/WebGPU image classifier |
 
+## Model Validation
+
+We validate burn-onnx against [26 real-world models](https://github.com/tracel-ai/burn-onnx/tree/main/crates/model-checks)
+spanning image classification, object detection, depth estimation, NLP, speech, and generative AI.
+Each model check verifies the full pipeline: ONNX import, Rust codegen, weight loading, and
+numerical accuracy against ONNX Runtime reference outputs.
+
 ## Supported Operators
 
 See the [Supported ONNX Operators](SUPPORTED-ONNX-OPS.md) table for the complete list of supported
