@@ -26,6 +26,10 @@ pub struct ArgMaxConfig {
     pub axis: usize,
     /// Whether to keep dimensions after reduction
     pub keepdims: bool,
+    /// When true, return the index of the LAST occurrence of the maximum
+    /// along the axis (ONNX `select_last_index=1`). Default false returns
+    /// the first occurrence.
+    pub select_last_index: bool,
 }
 
 /// Node representation for ArgMax operation
@@ -111,6 +115,7 @@ impl NodeProcessor for ArgMaxProcessor {
 
         let mut axis: i64 = 0;
         let mut keepdims = true;
+        let mut select_last_index = false;
 
         // Extract and validate attributes
         for (key, value) in node.attrs.iter() {
@@ -131,14 +136,14 @@ impl NodeProcessor for ArgMaxProcessor {
                     keepdims = keepdims_val != 0;
                 }
                 "select_last_index" => {
-                    // Validate select_last_index
-                    if value.clone().into_i64() != 0 {
+                    let v = value.clone().into_i64();
+                    if v != 0 && v != 1 {
                         return Err(ProcessError::InvalidAttribute {
                             name: "select_last_index".to_string(),
-                            reason: "select_last_index=1 is not supported for argmax in burn"
-                                .to_string(),
+                            reason: "Only select_last_index=0 or 1 is supported".to_string(),
                         });
                     }
+                    select_last_index = v != 0;
                 }
                 _ => {
                     // Unknown attributes are ignored (could add warning here)
@@ -150,7 +155,7 @@ impl NodeProcessor for ArgMaxProcessor {
             axis += tensor.rank as i64;
         }
 
-        let config = ArgMaxConfig::new(axis as usize, keepdims);
+        let config = ArgMaxConfig::new(axis as usize, keepdims, select_last_index);
         Ok(config)
     }
 
@@ -286,12 +291,28 @@ mod tests {
     }
 
     #[test]
-    fn test_argmax_config_select_last_index_invalid() {
-        let node = create_test_node(0, 1, 1); // Invalid select_last_index value
-
+    fn test_argmax_config_select_last_index_supported() {
+        // select_last_index=1 is supported via a flip-based rewrite; the
+        // config just propagates the flag.
+        let node = create_test_node(0, 1, 1);
         let processor = ArgMaxProcessor;
+        let config = processor.extract_config(&node, 16).unwrap();
+        assert_eq!(config.select_last_index, true);
 
-        // Validation should fail during config extraction
+        let node0 = create_test_node(0, 0, 1);
+        let config0 = processor.extract_config(&node0, 16).unwrap();
+        assert_eq!(config0.select_last_index, false);
+    }
+
+    #[test]
+    fn test_argmax_config_select_last_index_invalid() {
+        // Only 0 and 1 are allowed values.
+        let mut node = create_test_node(0, 1, 1);
+        node.attrs.insert(
+            "select_last_index".to_string(),
+            crate::ir::AttributeValue::Int64(2),
+        );
+        let processor = ArgMaxProcessor;
         let result = processor.extract_config(&node, 16);
         assert!(matches!(result, Err(ProcessError::InvalidAttribute { .. })));
     }

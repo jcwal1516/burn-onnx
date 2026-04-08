@@ -109,6 +109,103 @@ impl NodeCodegen for onnx_ir::modulo::ModNode {
                     let #output = #expr;
                 }
             }
+            // Shape values are `[i64; N]` arrays representing tensor dimensions.
+            // In practice they come from the ONNX `Shape` op (always non-negative)
+            // or from Shape arithmetic like sub.rs, which uses `saturating_sub` to
+            // clamp at 0. For non-negative integers Rust's `%`, ONNX fmod, and ONNX
+            // remainder all coincide, so a plain elementwise `%` covers both
+            // config.fmod variants here. If a future producer ever lets negative
+            // Shape values reach this arm, the `fmod=0` path would need to switch
+            // to `rem_euclid` to match ONNX semantics.
+            (ArgType::Shape(_), ArgType::Shape(_)) => {
+                let lhs = scope.arg(lhs_arg);
+                let rhs = scope.arg(rhs_arg);
+                quote! {
+                    let #output = {
+                        let mut result = #lhs;
+                        for (result_item, rhs_item) in result.iter_mut().zip(#rhs.iter()) {
+                            *result_item %= *rhs_item;
+                        }
+                        result
+                    };
+                }
+            }
+            (ArgType::Shape(_), rhs_ty) if rhs_ty.is_scalar() => {
+                let lhs = scope.arg(lhs_arg);
+                let rhs = scope.arg(rhs_arg);
+                let scalar_expr = if rhs_ty.is_scalar_tensor() {
+                    on_device_to_native(rhs.clone(), &rhs_ty.elem_type())
+                } else {
+                    quote! { #rhs as i64 }
+                };
+                quote! {
+                    let #output = {
+                        let mut result = #lhs;
+                        let __scalar = #scalar_expr;
+                        for result_item in result.iter_mut() {
+                            *result_item %= __scalar;
+                        }
+                        result
+                    };
+                }
+            }
+            (lhs_ty, ArgType::Shape(_)) if lhs_ty.is_scalar() => {
+                let lhs = scope.arg(lhs_arg);
+                let rhs = scope.arg(rhs_arg);
+                let scalar_expr = if lhs_ty.is_scalar_tensor() {
+                    on_device_to_native(lhs.clone(), &lhs_ty.elem_type())
+                } else {
+                    quote! { #lhs as i64 }
+                };
+                quote! {
+                    let #output = {
+                        let mut result = #rhs;
+                        let __scalar = #scalar_expr;
+                        for result_item in result.iter_mut() {
+                            *result_item = __scalar % *result_item;
+                        }
+                        result
+                    };
+                }
+            }
+            (ArgType::Shape(_), rhs_ty) if rhs_ty.is_on_device() => {
+                let lhs = scope.arg(lhs_arg);
+                let rhs = scope.arg(rhs_arg);
+                let dtype_tokens = rhs_ty.elem_type().to_tokens();
+                let lhs_tensor = quote! {
+                    Tensor::<B, 1, burn::tensor::Int>::from_data(
+                        burn::tensor::TensorData::from(&#lhs as &[i64]),
+                        (&self.device, #dtype_tokens)
+                    )
+                };
+                let expr = if self.config.fmod {
+                    quote! { #lhs_tensor.fmod(#rhs) }
+                } else {
+                    quote! { #lhs_tensor.remainder(#rhs) }
+                };
+                quote! {
+                    let #output = #expr;
+                }
+            }
+            (lhs_ty, ArgType::Shape(_)) if lhs_ty.is_on_device() => {
+                let lhs = scope.arg(lhs_arg);
+                let rhs = scope.arg(rhs_arg);
+                let dtype_tokens = lhs_ty.elem_type().to_tokens();
+                let rhs_tensor = quote! {
+                    Tensor::<B, 1, burn::tensor::Int>::from_data(
+                        burn::tensor::TensorData::from(&#rhs as &[i64]),
+                        (&self.device, #dtype_tokens)
+                    )
+                };
+                let expr = if self.config.fmod {
+                    quote! { #lhs.fmod(#rhs_tensor) }
+                } else {
+                    quote! { #lhs.remainder(#rhs_tensor) }
+                };
+                quote! {
+                    let #output = #expr;
+                }
+            }
             _ => panic!(
                 "Unsupported Mod input types: lhs={:?}, rhs={:?}",
                 lhs_arg.ty, rhs_arg.ty
@@ -449,6 +546,319 @@ mod tests {
                 )
                 .unsqueeze_dims(&[0isize])
                 .fmod(b);
+            output
+        }
+        ");
+    }
+
+    // --- Shape + Shape ---
+
+    #[test]
+    fn test_mod_shape_shape() {
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_shape("lhs", 3)
+            .input_shape("rhs", 3)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: [i64; 3], rhs: [i64; 3]) -> [i64; 3] {
+            let output = {
+                let mut result = lhs;
+                for (result_item, rhs_item) in result.iter_mut().zip(rhs.iter()) {
+                    *result_item %= *rhs_item;
+                }
+                result
+            };
+            output
+        }
+        ");
+    }
+
+    // --- Shape + ScalarNative ---
+
+    #[test]
+    fn test_mod_shape_scalar_native() {
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_shape("lhs", 3)
+            .input_scalar("rhs", DType::I64)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: [i64; 3], rhs: i64) -> [i64; 3] {
+            let output = {
+                let mut result = lhs;
+                let __scalar = rhs as i64;
+                for result_item in result.iter_mut() {
+                    *result_item %= __scalar;
+                }
+                result
+            };
+            output
+        }
+        ");
+    }
+
+    // --- ScalarNative + Shape ---
+
+    #[test]
+    fn test_mod_scalar_native_shape() {
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_scalar("lhs", DType::I64)
+            .input_shape("rhs", 3)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: i64, rhs: [i64; 3]) -> [i64; 3] {
+            let output = {
+                let mut result = rhs;
+                let __scalar = lhs as i64;
+                for result_item in result.iter_mut() {
+                    *result_item = __scalar % *result_item;
+                }
+                result
+            };
+            output
+        }
+        ");
+    }
+
+    // --- Shape + on_device ---
+
+    #[test]
+    fn test_mod_shape_tensor() {
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_shape("lhs", 3)
+            .input_tensor("rhs", 1, DType::I64)
+            .output_tensor("output", 1, DType::I64)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: [i64; 3], rhs: Tensor<B, 1, Int>) -> Tensor<B, 1, Int> {
+            let output = Tensor::<
+                B,
+                1,
+                burn::tensor::Int,
+            >::from_data(
+                    burn::tensor::TensorData::from(&lhs as &[i64]),
+                    (&self.device, burn::tensor::DType::I64),
+                )
+                .remainder(rhs);
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_fmod_shape_tensor() {
+        let config = ModConfig::new(true);
+        let node = ModNodeBuilder::new("mod1")
+            .input_shape("lhs", 3)
+            .input_tensor("rhs", 1, DType::I64)
+            .output_tensor("output", 1, DType::I64)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: [i64; 3], rhs: Tensor<B, 1, Int>) -> Tensor<B, 1, Int> {
+            let output = Tensor::<
+                B,
+                1,
+                burn::tensor::Int,
+            >::from_data(
+                    burn::tensor::TensorData::from(&lhs as &[i64]),
+                    (&self.device, burn::tensor::DType::I64),
+                )
+                .fmod(rhs);
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_mod_tensor_shape() {
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_tensor("lhs", 1, DType::I64)
+            .input_shape("rhs", 3)
+            .output_tensor("output", 1, DType::I64)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: Tensor<B, 1, Int>, rhs: [i64; 3]) -> Tensor<B, 1, Int> {
+            let output = lhs
+                .remainder(
+                    Tensor::<
+                        B,
+                        1,
+                        burn::tensor::Int,
+                    >::from_data(
+                        burn::tensor::TensorData::from(&rhs as &[i64]),
+                        (&self.device, burn::tensor::DType::I64),
+                    ),
+                );
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_fmod_tensor_shape() {
+        let config = ModConfig::new(true);
+        let node = ModNodeBuilder::new("mod1")
+            .input_tensor("lhs", 1, DType::I64)
+            .input_shape("rhs", 3)
+            .output_tensor("output", 1, DType::I64)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: Tensor<B, 1, Int>, rhs: [i64; 3]) -> Tensor<B, 1, Int> {
+            let output = lhs
+                .fmod(
+                    Tensor::<
+                        B,
+                        1,
+                        burn::tensor::Int,
+                    >::from_data(
+                        burn::tensor::TensorData::from(&rhs as &[i64]),
+                        (&self.device, burn::tensor::DType::I64),
+                    ),
+                );
+            output
+        }
+        ");
+    }
+
+    // `fmod` coverage for the Shape/Shape, Shape/ScalarNative, and
+    // ScalarNative/Shape arms: these arms deliberately ignore config.fmod
+    // because Shape values are non-negative in practice and Rust's `%`
+    // coincides with both fmod and remainder on non-negative integers.
+    // These tests pin that behavior so any accidental split of an arm into
+    // fmod/remainder branches shows up as a snapshot diff.
+
+    #[test]
+    fn test_fmod_shape_shape() {
+        let config = ModConfig::new(true);
+        let node = ModNodeBuilder::new("mod1")
+            .input_shape("lhs", 3)
+            .input_shape("rhs", 3)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: [i64; 3], rhs: [i64; 3]) -> [i64; 3] {
+            let output = {
+                let mut result = lhs;
+                for (result_item, rhs_item) in result.iter_mut().zip(rhs.iter()) {
+                    *result_item %= *rhs_item;
+                }
+                result
+            };
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_fmod_shape_scalar_native() {
+        let config = ModConfig::new(true);
+        let node = ModNodeBuilder::new("mod1")
+            .input_shape("lhs", 3)
+            .input_scalar("rhs", DType::I64)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: [i64; 3], rhs: i64) -> [i64; 3] {
+            let output = {
+                let mut result = lhs;
+                let __scalar = rhs as i64;
+                for result_item in result.iter_mut() {
+                    *result_item %= __scalar;
+                }
+                result
+            };
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_fmod_scalar_native_shape() {
+        let config = ModConfig::new(true);
+        let node = ModNodeBuilder::new("mod1")
+            .input_scalar("lhs", DType::I64)
+            .input_shape("rhs", 3)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: i64, rhs: [i64; 3]) -> [i64; 3] {
+            let output = {
+                let mut result = rhs;
+                let __scalar = lhs as i64;
+                for result_item in result.iter_mut() {
+                    *result_item = __scalar % *result_item;
+                }
+                result
+            };
+            output
+        }
+        ");
+    }
+
+    // Shape + ScalarTensor variants exercise the `is_scalar_tensor()` arm
+    // of `Shape op scalar` / `scalar op Shape`, which uses `on_device_to_native`
+    // to pull the scalar out of a rank-1 tensor.
+
+    #[test]
+    fn test_mod_shape_scalar_tensor() {
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_shape("lhs", 3)
+            .input_scalar_tensor("rhs", DType::I64)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: [i64; 3], rhs: Tensor<B, 1, Int>) -> [i64; 3] {
+            let output = {
+                let mut result = lhs;
+                let __scalar = rhs.into_scalar().elem::<i64>();
+                for result_item in result.iter_mut() {
+                    *result_item %= __scalar;
+                }
+                result
+            };
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_mod_scalar_tensor_shape() {
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_scalar_tensor("lhs", DType::I64)
+            .input_shape("rhs", 3)
+            .output_shape("output", 3)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, lhs: Tensor<B, 1, Int>, rhs: [i64; 3]) -> [i64; 3] {
+            let output = {
+                let mut result = rhs;
+                let __scalar = lhs.into_scalar().elem::<i64>();
+                for result_item in result.iter_mut() {
+                    *result_item = __scalar % *result_item;
+                }
+                result
+            };
             output
         }
         ");
