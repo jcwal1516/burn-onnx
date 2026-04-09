@@ -9,7 +9,12 @@ mod tests {
 
     use crate::backend::TestBackend;
 
+    // Blocked on https://github.com/tracel-ai/burn/pull/4764: Burn 0.21.0-pre.3
+    // introduced an `unsqueeze_dims` regression that panics on the 4D @ 1D matmul
+    // broadcasting path. Re-enable this test once we upgrade to a Burn release
+    // containing the upstream fix.
     #[test]
+    #[ignore = "blocked on tracel-ai/burn#4764 (unsqueeze_dims duplicate-axes panic)"]
     fn matmul() {
         // Initialize the model with weights (loaded from the exported file)
         let model: matmul::Model<TestBackend> = matmul::Model::default();
