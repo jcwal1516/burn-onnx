@@ -78,10 +78,10 @@ memmap2 = { version = "0.9" }
 thiserror = { version = "2.0.18", default-features = false }
 toml = { version = "0.9.8", default-features = false, features = ["parse", "serde"] }
 
-# burn = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "52998ac066953a02b5c18bfd236538235a2dac9f" }
-# burn-ndarray = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "52998ac066953a02b5c18bfd236538235a2dac9f" }
-# burn-store = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "52998ac066953a02b5c18bfd236538235a2dac9f" }
-# burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "52998ac066953a02b5c18bfd236538235a2dac9f" }
+burn = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "e779b63bc01e16c6a05ccaf4e16f49d43b5d1e78" }
+burn-ndarray = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "e779b63bc01e16c6a05ccaf4e16f49d43b5d1e78" }
+burn-store = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "e779b63bc01e16c6a05ccaf4e16f49d43b5d1e78" }
+burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "e779b63bc01e16c6a05ccaf4e16f49d43b5d1e78" }
 
 ### For local development. ###
 # burn = { path = "../burn/crates/burn", default-features = false }
@@ -90,10 +90,10 @@ toml = { version = "0.9.8", default-features = false, features = ["parse", "serd
 # burn-tensor = { path = "../burn/crates/burn-tensor", default-features = false }
 
 ### For the release. ###
-burn = { version = "0.21.0-pre.3", default-features = false }
-burn-ndarray = { version = "0.21.0-pre.3", default-features = false }
-burn-store = { version = "0.21.0-pre.3", default-features = false }
-burn-tensor = { version = "0.21.0-pre.3", default-features = false }
+# burn = { version = "0.21.0-pre.3", default-features = false }
+# burn-ndarray = { version = "0.21.0-pre.3", default-features = false }
+# burn-store = { version = "0.21.0-pre.3", default-features = false }
+# burn-tensor = { version = "0.21.0-pre.3", default-features = false }
 
 ### For xtask crate ###
 tracel-xtask = "=4.15.0"
