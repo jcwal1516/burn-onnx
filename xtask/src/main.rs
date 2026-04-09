@@ -2,6 +2,7 @@
 extern crate log;
 
 mod model_check;
+mod refresh_onnx_tests;
 
 use std::time::Instant;
 use tracel_xtask::prelude::*;
@@ -30,6 +31,10 @@ pub enum Command {
     Test(TestCmdArgs),
     /// Download, build, and run model checks.
     ModelCheck(model_check::ModelCheckArgs),
+    /// Refresh the vendored upstream ONNX backend node tests in
+    /// `crates/onnx-official-tests/vendor/node/` from a given onnx
+    /// release tag.
+    RefreshOnnxTests(refresh_onnx_tests::RefreshOnnxTestsArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -51,6 +56,7 @@ fn main() -> anyhow::Result<()> {
             base_commands::test::handle_command(cmd_args, environment, args.context)
         }
         Command::ModelCheck(cmd_args) => model_check::handle_command(cmd_args),
+        Command::RefreshOnnxTests(cmd_args) => refresh_onnx_tests::handle_command(cmd_args),
         _ => dispatch_base_commands(args, environment),
     }?;
 

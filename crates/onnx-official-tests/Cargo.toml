@@ -28,3 +28,7 @@ float-cmp = { workspace = true }
 
 [build-dependencies]
 burn-onnx = { path = "../burn-onnx" }
+onnx-ir = { path = "../onnx-ir" }
+protobuf = { workspace = true }
+serde = { workspace = true, features = ["std", "derive"] }
+toml = { workspace = true }

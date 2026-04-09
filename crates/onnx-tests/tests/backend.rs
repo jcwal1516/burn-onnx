@@ -5,7 +5,8 @@ pub type TestBackend = burn::backend::Wgpu;
     feature = "test-ndarray",
     not(feature = "test-wgpu"),
     not(feature = "test-tch"),
-    not(feature = "test-metal")
+    not(feature = "test-metal"),
+    not(feature = "test-candle")
 ))]
 pub type TestBackend = burn::backend::NdArray<f32>;
 
