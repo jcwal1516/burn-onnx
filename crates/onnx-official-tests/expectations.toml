@@ -1,0 +1,80 @@
+# Declarative expectations for the upstream ONNX backend node tests
+# vendored under `vendor/node/`. The runner consults this file to decide
+# whether each test is expected to pass, fail, or be skipped, and fails
+# CI on any drift between this file and reality.
+#
+# Source:    onnx v1.19.0 node tests (https://github.com/onnx/onnx)
+# Vendoring: hand-copied; refresh by re-running the steps in
+#            crates/onnx-official-tests/README.md.
+#
+# Status values:
+#   pass         - codegen succeeds, compile succeeds, output matches reference
+#   skip-codegen - onnx2burn panics or refuses the model (not yet wired)
+#   skip-compile - codegen succeeds but generated Rust does not compile (not yet wired)
+#   fail-compare - compiles and runs but produces incorrect output (not yet wired)
+#   flaky        - intermittent, ignored by the gate (not yet wired)
+#
+# Optional fields: reason, tracking (issue/PR ref), wontfix (bool)
+
+[test_abs]
+status = "pass"
+
+[test_add]
+status = "pass"
+
+[test_ceil]
+status = "pass"
+
+[test_cos]
+status = "pass"
+
+[test_div]
+status = "pass"
+
+[test_exp]
+status = "pass"
+
+[test_floor]
+status = "pass"
+
+[test_log]
+status = "pass"
+
+[test_mul]
+status = "pass"
+
+[test_neg]
+status = "pass"
+
+[test_pow]
+status = "pass"
+
+[test_reciprocal]
+status = "pass"
+
+[test_relu]
+status = "pass"
+
+[test_round]
+status = "pass"
+
+[test_sigmoid]
+status = "pass"
+
+[test_sin]
+status = "pass"
+
+[test_softplus]
+status = "pass"
+
+[test_softsign]
+status = "pass"
+
+[test_sqrt]
+status = "pass"
+
+[test_sub]
+status = "pass"
+
+[test_tanh]
+status = "pass"

@@ -18,3 +18,12 @@ mod tensor_store;
 pub use ir::*;
 pub use node::*;
 pub use pipeline::{Error, OnnxGraphBuilder};
+
+/// Generated protobuf binding for the ONNX `TensorProto` message.
+///
+/// Re-exported so sibling crates (e.g. `onnx-official-tests`) can decode
+/// `.pb` reference tensors without rebuilding the bindings themselves.
+/// The rest of the generated `protos` module is intentionally kept
+/// private; if more types need exposing, prefer adding narrow re-exports
+/// here over making the whole module public.
+pub use protos::TensorProto;

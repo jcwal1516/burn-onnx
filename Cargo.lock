@@ -5155,6 +5155,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "onnx-official-tests"
+version = "0.21.0-pre.2"
+dependencies = [
+ "burn",
+ "burn-onnx",
+ "burn-store",
+ "float-cmp",
+ "onnx-ir",
+ "protobuf",
+ "serde",
+ "thiserror 2.0.18",
+ "toml 0.9.12+spec-1.1.0",
+]
+
+[[package]]
 name = "onnx-tests"
 version = "0.21.0-pre.2"
 dependencies = [
