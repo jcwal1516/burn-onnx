@@ -133,10 +133,10 @@ impl NodeProcessor for LrnProcessor {
             .get("size")
             .map(|val| val.clone().into_i64())
             .ok_or_else(|| ProcessError::MissingAttribute("size".to_string()))?;
-        if size == 0 {
+        if size <= 0 {
             return Err(ProcessError::InvalidAttribute {
                 name: "size".to_string(),
-                reason: "`size` must be strictly positive. Got 0 instead".to_string(),
+                reason: format!("`size` must be strictly positive. Got {size} instead"),
             });
         }
 
@@ -239,6 +239,18 @@ mod tests {
     #[test]
     fn test_lrn_rejects_zero_size() {
         let node = create_test_node(0.0001, 0.75, 1.0, 0);
+
+        let result = LrnProcessor.extract_config(&node, 13);
+
+        assert!(matches!(
+            result,
+            Err(ProcessError::InvalidAttribute { ref name, .. }) if name == "size"
+        ));
+    }
+
+    #[test]
+    fn test_lrn_rejects_negative_size() {
+        let node = create_test_node(0.0001, 0.75, 1.0, -1);
 
         let result = LrnProcessor.extract_config(&node, 13);
 
