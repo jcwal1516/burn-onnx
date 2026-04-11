@@ -178,12 +178,37 @@ impl Dtype {
         }
     }
 
+    /// The concrete `burn::tensor::DType` literal for this ONNX dtype.
+    ///
+    /// Used when emitting `Tensor::from_data(data, (device, DType::…))` so
+    /// the harness pins the tensor's runtime dtype to what the `.pb` source
+    /// carries, instead of letting `from_data(data, &device)` silently
+    /// convert to the backend's default IntElem / FloatElem (which varies
+    /// across backends). A bare `from_data` would otherwise make an I64
+    /// source round-trip through a backend-default int width and then fail
+    /// the later `assert_eq` against the I64 expected-value TensorData.
+    fn burn_dtype_tokens(self) -> &'static str {
+        match self {
+            Self::F32 => "burn::tensor::DType::F32",
+            Self::F64 => "burn::tensor::DType::F64",
+            Self::I8 => "burn::tensor::DType::I8",
+            Self::I16 => "burn::tensor::DType::I16",
+            Self::I32 => "burn::tensor::DType::I32",
+            Self::I64 => "burn::tensor::DType::I64",
+            Self::U8 => "burn::tensor::DType::U8",
+            Self::U16 => "burn::tensor::DType::U16",
+            Self::U32 => "burn::tensor::DType::U32",
+            Self::U64 => "burn::tensor::DType::U64",
+            Self::Bool => "burn::tensor::DType::Bool(burn::tensor::BoolStore::Native)",
+        }
+    }
+
     /// The concrete Rust element type to use as the type parameter for
     /// `TensorData::assert_approx_eq::<T>`. Using `f32` for FLOAT and
-    /// `f64` for DOUBLE avoids two problems: (a) `FloatElem<TestBackend>`
-    /// is always `f32` on NdArray which would cause a type mismatch
-    /// against `f64` TensorData, and (b) using a narrower type than the
-    /// decoded values would compare at reduced precision.
+    /// `f64` for DOUBLE avoids two problems: (a) a backend default
+    /// `FloatElem<TestBackend>` that differs from the TensorData dtype
+    /// would cause a type mismatch, and (b) using a narrower type than
+    /// the decoded values would compare at reduced precision.
     fn assert_elem_type(self) -> &'static str {
         match self {
             Self::F32 => "f32",
@@ -601,6 +626,7 @@ fn emit_single_test(buf: &mut String, name: &str, meta: &TestMeta) {
         let kind = inp.dtype.tensor_kind_suffix();
         let variant = inp.dtype.values_variant();
         let onnx_name = inp.dtype.onnx_name();
+        let dtype_tokens = inp.dtype.burn_dtype_tokens();
 
         writeln!(
             buf,
@@ -617,12 +643,17 @@ fn emit_single_test(buf: &mut String, name: &str, meta: &TestMeta) {
              {binding}_ref.shape.len());"
         )
         .unwrap();
+        // Pass `(device, DType::X)` to `from_data` so the tensor's runtime dtype
+        // is pinned to what the `.pb` source carries. A bare `from_data(data,
+        // &device)` would convert to the backend's default int/float element,
+        // which varies by backend (Flex=I32, NdArray=I64) and would silently
+        // mutate the test's input dtype.
         writeln!(
             buf,
             "    let {binding}: burn::tensor::Tensor<TestBackend, {rank}{kind}> = match {binding}_ref.values {{\n\
              \x20       onnx_official_tests::pb_loader::TensorValues::{variant}(values) => {{\n\
              \x20           let data = burn::tensor::TensorData::new(values, {binding}_ref.shape);\n\
-             \x20           burn::tensor::Tensor::<TestBackend, {rank}{kind}>::from_data(data, &device)\n\
+             \x20           burn::tensor::Tensor::<TestBackend, {rank}{kind}>::from_data(data, (&device, {dtype_tokens}))\n\
              \x20       }}\n\
              \x20       other => panic!(\"{name} input_{idx}: expected {onnx_name}, got {{}}\", other.dtype_name()),\n\
              \x20   }};"
@@ -692,6 +723,10 @@ fn emit_single_test(buf: &mut String, name: &str, meta: &TestMeta) {
             )
             .unwrap();
         } else {
+            // Strict dtype-aware comparison. Per CLAUDE.md, the generated
+            // codegen must pin output dtypes explicitly rather than leak
+            // the backend's default IntElem/BoolStore, so the actual and
+            // expected dtypes should match without any normalization here.
             writeln!(
                 buf,
                 "    actual_{idx}_data.assert_eq(&expected_{idx}_data, true);"

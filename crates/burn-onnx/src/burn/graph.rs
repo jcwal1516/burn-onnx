@@ -584,7 +584,7 @@ impl BurnGraph {
                     /// The embedded data stays in the binary's .rodata section without heap allocation.
                     /// Tensor data is sliced directly from the static bytes.
                     ///
-                    /// Note: Some backends (e.g., NdArray) may still copy data internally.
+                    /// Note: Some backends may still copy data internally.
                     /// See <https://github.com/tracel-ai/burn/issues/4153> for true backend zero-copy.
                     ///
                     /// See <https://github.com/tracel-ai/burn/issues/4123>

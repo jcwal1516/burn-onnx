@@ -78,20 +78,20 @@ memmap2 = { version = "0.9" }
 thiserror = { version = "2.0.18", default-features = false }
 toml = { version = "0.9.8", default-features = false, features = ["parse", "serde"] }
 
-burn = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "e779b63bc01e16c6a05ccaf4e16f49d43b5d1e78" }
-burn-ndarray = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "e779b63bc01e16c6a05ccaf4e16f49d43b5d1e78" }
-burn-store = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "e779b63bc01e16c6a05ccaf4e16f49d43b5d1e78" }
-burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "e779b63bc01e16c6a05ccaf4e16f49d43b5d1e78" }
+burn = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "c33867c60a99958aafd4d05df782c68d242a6510" }
+burn-flex = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "c33867c60a99958aafd4d05df782c68d242a6510" }
+burn-store = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "c33867c60a99958aafd4d05df782c68d242a6510" }
+burn-tensor = { git = "https://github.com/tracel-ai/burn", default-features = false, rev = "c33867c60a99958aafd4d05df782c68d242a6510" }
 
 ### For local development. ###
 # burn = { path = "../burn/crates/burn", default-features = false }
-# burn-ndarray = { path = "../burn/crates/burn-ndarray", default-features = false }
+# burn-flex = { path = "../burn/crates/burn-flex", default-features = false }
 # burn-store = { path = "../burn/crates/burn-store", default-features = false }
 # burn-tensor = { path = "../burn/crates/burn-tensor", default-features = false }
 
 ### For the release. ###
 # burn = { version = "0.21.0-pre.3", default-features = false }
-# burn-ndarray = { version = "0.21.0-pre.3", default-features = false }
+# burn-flex = { version = "0.21.0-pre.3", default-features = false }
 # burn-store = { version = "0.21.0-pre.3", default-features = false }
 # burn-tensor = { version = "0.21.0-pre.3", default-features = false }
 

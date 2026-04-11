@@ -99,22 +99,19 @@ impl NodeCodegen for onnx_ir::one_hot::OneHotNode {
         let output_dtype = output_arg.ty.elem_type();
         let output_dtype_tokens = output_dtype.to_tokens();
 
-        let input_dtype = input_arg.ty.elem_type();
-
         // Build the `one_hot_fill` call as a trailing expression (no
         // `let #output = ...;`). Wrapping the prelude + expression inside
         // a single block scopes the `__onehot_*` temporaries so multiple
         // OneHot nodes in the same forward() don't collide.
+        //
+        // `one_hot_fill` returns a tensor whose element dtype comes from the
+        // backend's default Int/Float element, not from the input tensor's
+        // runtime dtype. Always cast to the ONNX-specified output dtype so
+        // the generated code doesn't leak the backend default (CLAUDE.md).
         let body: TokenStream = match (input_kind, output_kind) {
             (TensorKind::Int, TensorKind::Int) | (TensorKind::Float, TensorKind::Float) => {
-                if input_dtype == output_dtype {
-                    quote! {
-                        #input.one_hot_fill(#num_classes, #on_value, #off_value, #axis)
-                    }
-                } else {
-                    quote! {
-                        #input.one_hot_fill(#num_classes, #on_value, #off_value, #axis).cast(#output_dtype_tokens)
-                    }
+                quote! {
+                    #input.one_hot_fill(#num_classes, #on_value, #off_value, #axis).cast(#output_dtype_tokens)
                 }
             }
             (TensorKind::Int, TensorKind::Float) => {
@@ -199,7 +196,9 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self, indices: Tensor<B, 1, Int>) -> Tensor<B, 2, Int> {
-            let output = indices.one_hot_fill(5usize, 1f32, 0f32, -1i64);
+            let output = indices
+                .one_hot_fill(5usize, 1f32, 0f32, -1i64)
+                .cast(burn::tensor::DType::I32);
             output
         }
         ");
@@ -220,7 +219,9 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self, indices: Tensor<B, 1>) -> Tensor<B, 2> {
-            let output = indices.one_hot_fill(5usize, 1f32, 0f32, 0i64);
+            let output = indices
+                .one_hot_fill(5usize, 1f32, 0f32, 0i64)
+                .cast(burn::tensor::DType::F32);
             output
         }
         ");

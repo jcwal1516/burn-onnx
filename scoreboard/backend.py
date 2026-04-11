@@ -65,13 +65,22 @@ NUMPY_DTYPE_TO_STR = {
     np.dtype("bool"): "bool",
 }
 
-# Rust DType string from TensorData.dtype debug output -> numpy dtype
+# Rust DType string from TensorData.dtype debug output -> numpy dtype.
+#
+# Intentional omission: bf16. bf16 and fp16 are both 2 bytes wide but have
+# different bit layouts (8 exponent bits vs 5), so reading raw bf16 bytes
+# via `np.frombuffer(..., dtype=np.float16)` would be a silent
+# reinterpretation producing garbage values, not a lossy conversion. If a
+# model produces bf16 outputs, we want `_resolve_rust_dtype` to explicitly
+# raise `BackendIsNotSupposedToImplementIt` so the scoreboard skips the
+# model rather than submits wrong results upstream. Support bf16 properly
+# by either (a) teaching the Rust runner to cast bf16 outputs to f32
+# before writing, or (b) reading them as u16 and unpacking manually.
 RUST_DTYPE_TO_NUMPY = {
     "f32": np.float32,
     "f64": np.float64,
     "f16": np.float16,
     "flex32": np.float32,
-    "bf16": np.float16,  # closest numpy equivalent
     "i8": np.int8,
     "i16": np.int16,
     "i32": np.int32,
@@ -199,7 +208,19 @@ def _tensor_rank(ty):
 
 
 def _gen_read_input(idx, name, rust_type):
-    """Generate Rust code to read one input from the manifest."""
+    """Generate Rust code to read one input from the manifest.
+
+    The emitted `Tensor::from_data` calls all pin the tensor's runtime dtype
+    via `(&device, burn::tensor::DType::X)`. Leaving the second argument as
+    a bare `&device` would let burn's `from_data` convert the TensorData to
+    the backend's default Int/Float element type, which varies across
+    backends and can silently truncate an int64 source tensor (for example
+    when the backend's default IntElem is narrower than i64). That also
+    violates the project's "explicit dtypes in generated code" rule (see
+    .claude/CLAUDE.md). The numpy inputs are cast to the matching precision
+    on the Python side before serialization (see `_CATEGORY_TO_NUMPY`), so
+    these dtype constants are the correct runtime width for each branch.
+    """
     cat = _rust_type_category(rust_type)
     rank = _tensor_rank(rust_type)
 
@@ -211,7 +232,8 @@ def _gen_read_input(idx, name, rust_type):
             f"        let values: Vec<f32> = bytes.chunks_exact(4)\n"
             f"            .map(|c| f32::from_le_bytes(c.try_into().unwrap())).collect();\n"
             f"        Tensor::<B, {rank}>::from_data(\n"
-            f"            TensorData::new(values, info.shape.clone()), &device,\n"
+            f"            TensorData::new(values, info.shape.clone()),\n"
+            f"            (&device, burn::tensor::DType::F32),\n"
             f"        )\n"
             f"    }};\n"
         )
@@ -223,7 +245,8 @@ def _gen_read_input(idx, name, rust_type):
             f"        let values: Vec<i64> = bytes.chunks_exact(8)\n"
             f"            .map(|c| i64::from_le_bytes(c.try_into().unwrap())).collect();\n"
             f"        Tensor::<B, {rank}, Int>::from_data(\n"
-            f"            TensorData::new(values, info.shape.clone()), &device,\n"
+            f"            TensorData::new(values, info.shape.clone()),\n"
+            f"            (&device, burn::tensor::DType::I64),\n"
             f"        )\n"
             f"    }};\n"
         )
@@ -234,7 +257,8 @@ def _gen_read_input(idx, name, rust_type):
             f"        let bytes = std::fs::read(&info.file).expect(\"read input\");\n"
             f"        let values: Vec<bool> = bytes.iter().map(|&b| b != 0).collect();\n"
             f"        Tensor::<B, {rank}, Bool>::from_data(\n"
-            f"            TensorData::new(values, info.shape.clone()), &device,\n"
+            f"            TensorData::new(values, info.shape.clone()),\n"
+            f"            (&device, burn::tensor::DType::Bool(burn::tensor::BoolStore::Native)),\n"
             f"        )\n"
             f"    }};\n"
         )
@@ -326,10 +350,10 @@ def _generate_main_rs(rs_source, bpk_path):
         "",
         "use burn::prelude::*;",
         "use burn::tensor::TensorData;",
-        "use burn_ndarray::{NdArray, NdArrayDevice};",
+        "use burn::backend::Flex;",
         "use serde::Deserialize;",
         "",
-        "type B = NdArray<f32>;",
+        "type B = Flex;",
         "",
         "#[derive(Deserialize)]",
         "struct Manifest {",
@@ -354,7 +378,7 @@ def _generate_main_rs(rs_source, bpk_path):
         "        &std::fs::read_to_string(manifest_path).expect(\"read manifest\")",
         "    ).expect(\"parse manifest\");",
         "",
-        "    let device = NdArrayDevice::Cpu;",
+        "    let device = <B as burn::tensor::backend::Backend>::Device::default();",
         "    let model = model::Model::<B>::from_file(&manifest.bpk_path, &device);",
         "",
     ]
@@ -461,10 +485,23 @@ def _resolve_rust_dtype(dtype_str):
 
     Burn formats DType as e.g. "F32", "I64", "Bool(native)".
     After .to_lowercase() in the runner: "f32", "i64", "bool(native)".
+
+    Raises `BackendIsNotSupposedToImplementIt` for dtypes the scoreboard
+    cannot safely read back — bf16 (byte layout mismatch with fp16) and
+    any future dtype name we haven't mapped. A silent fallback to f32
+    would cause the scoreboard to submit wrong-answer results upstream
+    when a model produces an unmapped dtype.
     """
     # Strip parenthesized qualifiers: "bool(native)" -> "bool"
     base = dtype_str.split("(")[0].strip()
-    return RUST_DTYPE_TO_NUMPY.get(base, np.float32)
+    numpy_dtype = RUST_DTYPE_TO_NUMPY.get(base)
+    if numpy_dtype is None:
+        raise BackendIsNotSupposedToImplementIt(
+            f"Output dtype '{dtype_str}' is not supported by the burn-onnx "
+            f"scoreboard runner. Mapped dtypes: {sorted(RUST_DTYPE_TO_NUMPY)}. "
+            f"Extend RUST_DTYPE_TO_NUMPY to add support."
+        )
+    return numpy_dtype
 
 
 def _read_output_manifest(output_dir):
