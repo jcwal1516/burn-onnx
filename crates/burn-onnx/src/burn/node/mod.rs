@@ -56,6 +56,7 @@ pub(crate) mod deform_conv;
 pub(crate) mod depth_to_space;
 pub(crate) mod dequantize_linear;
 pub(crate) mod det;
+pub(crate) mod dft;
 pub(crate) mod div;
 pub(crate) mod dropout;
 pub(crate) mod einsum;

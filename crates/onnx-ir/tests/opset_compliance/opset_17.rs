@@ -12,6 +12,26 @@ fn graph() -> OnnxGraph {
 }
 
 #[rstest]
+fn dft(graph: &OnnxGraph) {
+    let node = find_node(graph, "dft");
+    insta::assert_snapshot!(format!("{node}"), @r#"
+    Dft "dft1"
+      Inputs:
+        dft_input: F32[1, 8, 1]
+      Outputs:
+        dft1_out1: F32[1, 5, 2]
+      Config:
+        DftConfig {
+            inverse: false,
+            onesided: true,
+            axis: 1,
+            dft_length: None,
+            is_real_input: true,
+        }
+    "#);
+}
+
+#[rstest]
 fn layer_normalization(graph: &OnnxGraph) {
     let node = find_node(graph, "layernormalization");
     insta::assert_snapshot!(format!("{node}"), @r#"

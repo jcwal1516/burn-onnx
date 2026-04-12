@@ -370,6 +370,7 @@ impl ProcessorRegistry {
             Box::new(crate::node::dropout::DropoutProcessor),
         );
         registry.register(NodeType::Det, Box::new(crate::node::det::DetProcessor));
+        registry.register(NodeType::Dft, Box::new(crate::node::dft::DftProcessor));
         registry.register(NodeType::Pad, Box::new(crate::node::pad::PadProcessor));
 
         // Reduction operations

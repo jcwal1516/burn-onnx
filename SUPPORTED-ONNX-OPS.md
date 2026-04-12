@@ -58,7 +58,7 @@ functionality.
 | [DepthToSpace][42]               | ✅             | ✅           |
 | [DequantizeLinear][43]           | ✅             | ✅           |
 | [Det][44]                        | ✅             | ✅           |
-| [DFT][45]                        | ❌             | ❌           |
+| [DFT][45]                        | ✅             | ✅           |
 | [Div][46]                        | ✅             | ✅           |
 | [Dropout][47]                    | ✅             | ✅           |
 | [DynamicQuantizeLinear][48]      | ❌             | ❌           |

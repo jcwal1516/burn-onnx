@@ -2343,34 +2343,34 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_dft]
-status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): Dft (node 'dft1')"
-tracking = "#314"
+status = "fail-compare"
+reason = "Burn rfft requires power-of-2 signal dimension; test uses dim=10"
+tracking = "#161"
 
 [test_dft_axis]
-status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): Dft (node 'dft1')"
-tracking = "#314"
+status = "fail-compare"
+reason = "Burn rfft requires power-of-2 signal dimension; test uses dim=10"
+tracking = "#161"
 
 [test_dft_axis_opset19]
-status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): Dft (node 'dft1')"
-tracking = "#314"
+status = "fail-compare"
+reason = "Burn rfft requires power-of-2 signal dimension; test uses dim=10"
+tracking = "#161"
 
 [test_dft_inverse]
 status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): Dft (node 'dft1')"
-tracking = "#314"
+reason = "Inverse DFT (inverse=1) not supported; Burn lacks complex-to-complex ifft"
+tracking = "#161"
 
 [test_dft_inverse_opset19]
 status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): Dft (node 'dft1')"
-tracking = "#314"
+reason = "Inverse DFT (inverse=1) not supported; Burn lacks complex-to-complex ifft"
+tracking = "#161"
 
 [test_dft_opset19]
-status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): Dft (node 'dft1')"
-tracking = "#314"
+status = "fail-compare"
+reason = "Burn rfft requires power-of-2 signal dimension; test uses dim=10"
+tracking = "#161"
 
 [test_div]
 status = "pass"

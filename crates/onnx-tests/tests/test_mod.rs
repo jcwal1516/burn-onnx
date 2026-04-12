@@ -50,6 +50,7 @@ pub mod deform_conv;
 pub mod depth_to_space;
 pub mod dequantize_linear;
 pub mod det;
+pub mod dft;
 pub mod div;
 pub mod dropout;
 pub mod einsum;

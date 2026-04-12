@@ -231,6 +231,9 @@ impl_node_codegen_dispatch! {
     // Linear algebra ops
     Det,
 
+    // Signal processing ops
+    Dft,
+
     // Test ops
     IsInf,
     IsNaN,
