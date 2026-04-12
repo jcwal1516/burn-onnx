@@ -40,14 +40,21 @@ impl NodeCodegen for onnx_ir::topk::TopKNode {
                 let prelude = match &arg.ty {
                     ArgType::ScalarNative(_) => {
                         let ident = arg_to_ident(arg);
-                        quote! { let __topk_k: usize = #ident as usize; }
+                        // Clamp with `max(0)` before `as usize`. A negative
+                        // runtime k is out-of-spec for ONNX TopK; letting a
+                        // negative i64 wrap to a huge usize causes OOM or a
+                        // cryptic deep-burn panic. Clamp to zero so a
+                        // broken model produces an empty top-k result
+                        // instead. Adding observability is tracked in
+                        // tracel-ai/burn-onnx#328.
+                        quote! { let __topk_k: usize = (#ident as i64).max(0) as usize; }
                     }
                     ArgType::ScalarTensor(_) | ArgType::Tensor(_) => {
                         let tensor = scope.arg(arg);
                         quote! {
                             let __topk_k: usize = {
                                 let __data = #tensor.to_data().convert::<i64>();
-                                __data.as_slice::<i64>().unwrap()[0] as usize
+                                __data.as_slice::<i64>().unwrap()[0].max(0) as usize
                             };
                         }
                     }
@@ -126,7 +133,7 @@ mod tests {
             let (values, __topk_indices_raw) = {
                 let __topk_k: usize = {
                     let __data = k.to_data().convert::<i64>();
-                    __data.as_slice::<i64>().unwrap()[0] as usize
+                    __data.as_slice::<i64>().unwrap()[0].max(0) as usize
                 };
                 input.topk_with_indices(__topk_k, 1)
             };

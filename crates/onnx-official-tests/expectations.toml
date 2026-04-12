@@ -209,129 +209,97 @@ tracking = "tracel-ai/burn#4771"
 status = "pass"
 
 [test_argmax_default_axis_example_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmax in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmax_default_axis_random]
 status = "pass"
 
 [test_argmax_default_axis_random_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmax in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmax_keepdims_example]
 status = "pass"
 
 [test_argmax_keepdims_example_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmax in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmax_keepdims_random]
 status = "pass"
 
 [test_argmax_keepdims_random_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmax in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmax_negative_axis_keepdims_example]
 status = "pass"
 
 [test_argmax_negative_axis_keepdims_example_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmax in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmax_negative_axis_keepdims_random]
 status = "pass"
 
 [test_argmax_negative_axis_keepdims_random_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmax in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmax_no_keepdims_example]
 status = "pass"
 
 [test_argmax_no_keepdims_example_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmax in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmax_no_keepdims_random]
 status = "pass"
 
 [test_argmax_no_keepdims_random_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmax in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmin_default_axis_example]
 status = "pass"
 
 [test_argmin_default_axis_example_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmin in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmin_default_axis_random]
 status = "pass"
 
 [test_argmin_default_axis_random_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmin in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmin_keepdims_example]
 status = "pass"
 
 [test_argmin_keepdims_example_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmin in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmin_keepdims_random]
 status = "pass"
 
 [test_argmin_keepdims_random_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmin in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmin_negative_axis_keepdims_example]
 status = "pass"
 
 [test_argmin_negative_axis_keepdims_example_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmin in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmin_negative_axis_keepdims_random]
 status = "pass"
 
 [test_argmin_negative_axis_keepdims_random_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmin in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmin_no_keepdims_example]
 status = "pass"
 
 [test_argmin_no_keepdims_example_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmin in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_argmin_no_keepdims_random]
 status = "pass"
 
 [test_argmin_no_keepdims_random_select_last_index]
-status = "skip-codegen"
-reason = "InvalidAttribute { name: \"select_last_index\", reason: \"select_last_index=1 is not supported for argmin in burn\" }"
-tracking = "#314"
+status = "pass"
 
 [test_asin]
 status = "pass"
@@ -1971,9 +1939,7 @@ reason = "max: unsupported input types"
 tracking = "#314"
 
 [test_clip]
-status = "skip-codegen"
-reason = "Clip: runtime min values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_default_inbounds]
 status = "skip-codegen"
@@ -1994,41 +1960,31 @@ reason = "comparison against reference tensor fails (classified by M2 first-run 
 tracking = "#311"
 
 [test_clip_default_int8_max]
-status = "skip-codegen"
-reason = "Clip: runtime max values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_default_int8_max_expanded]
 status = "pass"
 
 [test_clip_default_int8_min]
-status = "skip-codegen"
-reason = "Clip: runtime min values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_default_int8_min_expanded]
 status = "pass"
 
 [test_clip_default_max]
-status = "skip-codegen"
-reason = "Clip: runtime max values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_default_max_expanded]
 status = "pass"
 
 [test_clip_default_min]
-status = "skip-codegen"
-reason = "Clip: runtime min values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_default_min_expanded]
 status = "pass"
 
 [test_clip_example]
-status = "skip-codegen"
-reason = "Clip: runtime min values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_example_expanded]
 status = "pass"
@@ -2037,33 +1993,25 @@ status = "pass"
 status = "pass"
 
 [test_clip_inbounds]
-status = "skip-codegen"
-reason = "Clip: runtime min values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_inbounds_expanded]
 status = "pass"
 
 [test_clip_min_greater_than_max]
-status = "skip-codegen"
-reason = "Clip: runtime min values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_min_greater_than_max_expanded]
 status = "pass"
 
 [test_clip_outbounds]
-status = "skip-codegen"
-reason = "Clip: runtime min values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_outbounds_expanded]
 status = "pass"
 
 [test_clip_splitbounds]
-status = "skip-codegen"
-reason = "Clip: runtime min values are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_clip_splitbounds_expanded]
 status = "pass"
@@ -2464,29 +2412,19 @@ reason = "comparison against reference tensor fails (classified by M2 first-run 
 tracking = "#311"
 
 [test_dropout_default]
-status = "skip-codegen"
-reason = "MissingInput(\"Dropout: missing ratio input\")"
-tracking = "#314"
+status = "pass"
 
 [test_dropout_default_mask]
-status = "skip-codegen"
-reason = "MissingInput(\"Dropout: missing ratio input\")"
-tracking = "#314"
+status = "pass"
 
 [test_dropout_default_mask_ratio]
-status = "skip-codegen"
-reason = "Runtime input is not implemented for Dropout"
-tracking = "#314"
+status = "pass"
 
 [test_dropout_default_old]
-status = "skip-codegen"
-reason = "MissingInput(\"Dropout: missing ratio input\")"
-tracking = "#314"
+status = "pass"
 
 [test_dropout_default_ratio]
-status = "skip-codegen"
-reason = "Runtime input is not implemented for Dropout"
-tracking = "#314"
+status = "pass"
 
 [test_dropout_random_old]
 status = "pass"
@@ -3931,9 +3869,7 @@ status = "pass"
 status = "pass"
 
 [test_mod_broadcast]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mod_int64_fmod]
 status = "skip-compile"
@@ -3950,42 +3886,28 @@ status = "pass"
 status = "pass"
 
 [test_mod_mixed_sign_int16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mod_mixed_sign_int32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mod_mixed_sign_int64]
 status = "pass"
 
 [test_mod_mixed_sign_int8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mod_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mod_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mod_uint64]
-status = "fail-compare"
-reason = "mod op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_mod_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_momentum]
 status = "skip-codegen"
@@ -4288,24 +4210,16 @@ status = "pass"
 status = "pass"
 
 [test_onehot_negative_indices]
-status = "skip-codegen"
-reason = "OneHot with runtime depth is not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_onehot_with_axis]
-status = "skip-codegen"
-reason = "OneHot with runtime depth is not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_onehot_with_negative_axis]
-status = "skip-codegen"
-reason = "OneHot with runtime depth is not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_onehot_without_axis]
-status = "skip-codegen"
-reason = "OneHot with runtime depth is not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_optional_get_element_optional_sequence]
 status = "skip-codegen"
@@ -6825,29 +6739,29 @@ reason = "Runtime repeats are not supported in burn-onnx"
 tracking = "#314"
 
 [test_top_k]
-status = "skip-codegen"
-reason = "Runtime k value is not supported in burn-onnx"
-tracking = "#314"
+status = "fail-compare"
+reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
+tracking = "tracel-ai/burn"
 
 [test_top_k_negative_axis]
-status = "skip-codegen"
-reason = "Runtime k value is not supported in burn-onnx"
-tracking = "#314"
+status = "fail-compare"
+reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
+tracking = "tracel-ai/burn"
 
 [test_top_k_same_values]
-status = "skip-codegen"
-reason = "Runtime k value is not supported in burn-onnx"
-tracking = "#314"
+status = "fail-compare"
+reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
+tracking = "tracel-ai/burn"
 
 [test_top_k_same_values_2d]
-status = "skip-codegen"
-reason = "Runtime k value is not supported in burn-onnx"
-tracking = "#314"
+status = "fail-compare"
+reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
+tracking = "tracel-ai/burn"
 
 [test_top_k_same_values_largest]
-status = "skip-codegen"
-reason = "Runtime k value is not supported in burn-onnx"
-tracking = "#314"
+status = "fail-compare"
+reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
+tracking = "tracel-ai/burn"
 
 [test_top_k_smallest]
 status = "skip-codegen"
@@ -6855,9 +6769,9 @@ reason = "Node 'topk1' (TopK): TopK: only largest elements is supported"
 tracking = "#314"
 
 [test_top_k_uint64]
-status = "skip-codegen"
-reason = "Runtime k value is not supported in burn-onnx"
-tracking = "#314"
+status = "fail-compare"
+reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
+tracking = "tracel-ai/burn"
 
 [test_training_dropout]
 status = "skip-codegen"
