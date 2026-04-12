@@ -84,7 +84,7 @@ functionality.
 | [GridSample][68]                 | ✅             | ✅           |
 | [GroupNormalization][69]         | ✅             | ✅           |
 | [GRU][70]                        | ✅             | ✅           |
-| [HammingWindow][71]              | ❌             | ❌           |
+| [HammingWindow][71]              | ✅             | ✅           |
 | [HannWindow][72]                 | ❌             | ❌           |
 | [Hardmax][73]                    | ✅             | ✅           |
 | [HardSigmoid][74]                | ✅             | ✅           |

@@ -168,6 +168,7 @@ MIN_OPSET = {
     "DeformConv": 19,
     # Signal processing
     "DFT": 17,
+    "HammingWindow": 17,
 }
 MANIFEST_PATH = (
     REPO_ROOT

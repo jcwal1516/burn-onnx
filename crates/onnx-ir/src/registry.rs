@@ -582,6 +582,12 @@ impl ProcessorRegistry {
             Box::new(crate::node::bernoulli::BernoulliProcessor),
         );
 
+        // Signal processing operations
+        registry.register(
+            NodeType::HammingWindow,
+            Box::new(crate::node::hamming_window::HammingWindowProcessor),
+        );
+
         // Misc operations
         registry.register(
             NodeType::EyeLike,

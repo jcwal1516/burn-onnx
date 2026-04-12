@@ -54,7 +54,6 @@ define_placeholder_node! {
     DequantizeLinearNode,
     DynamicQuantizeLinearNode,
     GlobalMaxPoolNode,
-    HammingWindowNode,
     HannWindowNode,
     HardmaxNode,
     ImNode,

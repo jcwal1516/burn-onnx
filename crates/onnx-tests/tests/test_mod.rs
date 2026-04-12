@@ -75,6 +75,7 @@ pub mod greater_or_equal;
 pub mod grid_sample;
 pub mod group_norm;
 pub mod gru;
+pub mod hamming_window;
 pub mod hard_sigmoid;
 pub mod hard_swish;
 pub mod hardmax;

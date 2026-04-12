@@ -166,6 +166,8 @@ fn add_all_inputs(model_gen: &mut ModelGen) {
         .input("tests/det/det_batched.onnx")
         .input("tests/dft/dft_onesided.onnx")
         .input("tests/dft/dft_full.onnx")
+        .input("tests/hamming_window/hamming_window.onnx")
+        .input("tests/hamming_window/hamming_window_symmetric.onnx")
         .input("tests/col2im/col2im_basic.onnx")
         .input("tests/col2im/col2im_complex.onnx")
         .input("tests/div/div.onnx")

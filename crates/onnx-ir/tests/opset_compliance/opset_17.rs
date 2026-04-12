@@ -32,14 +32,31 @@ fn dft(graph: &OnnxGraph) {
 }
 
 #[rstest]
+fn hamming_window(graph: &OnnxGraph) {
+    let node = find_node(graph, "hammingwindow");
+    insta::assert_snapshot!(format!("{node}"), @r#"
+    HammingWindow "hammingwindow1"
+      Inputs:
+      Outputs:
+        hammingwindow1_out1: F32[10]
+      Config:
+        HammingWindowConfig {
+            periodic: true,
+            output_dtype: F32,
+            size: 10,
+        }
+    "#);
+}
+
+#[rstest]
 fn layer_normalization(graph: &OnnxGraph) {
     let node = find_node(graph, "layernormalization");
     insta::assert_snapshot!(format!("{node}"), @r#"
     LayerNormalization "layernormalization1"
       Inputs:
         layernormalization_input: F32[2, 3, 4]
-        _: F32[4] [static(0)]
         _: F32[4] [static(1)]
+        _: F32[4] [static(2)]
       Outputs:
         layernormalization1_out1: F32[2, 3, 4]
       Config:

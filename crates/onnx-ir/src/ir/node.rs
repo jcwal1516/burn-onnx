@@ -360,7 +360,7 @@ define_node_enum! {
     Einsum => einsum::EinsumNode,
     GridSample => grid_sample::GridSampleNode,
     Gru => gru::GruNode,
-    HammingWindow => unsupported::HammingWindowNode,
+    HammingWindow => hamming_window::HammingWindowNode,
     HannWindow => unsupported::HannWindowNode,
     Hardmax => hardmax::HardmaxNode,
     Im => unsupported::ImNode,

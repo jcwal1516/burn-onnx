@@ -204,6 +204,7 @@ SUPPORTED_OPS = {
     "DeformConv": "deform_conv",
     # Signal processing
     "DFT": "dft",
+    "HammingWindow": "hamming_window",
 }
 
 
@@ -905,6 +906,16 @@ def make_dft(op_name: str, opset: int):
     return [node], [inp], [out], []
 
 
+def make_hamming_window(op_name: str, opset: int):
+    out = helper.make_tensor_value_info(_p(op_name, "output"), TensorProto.FLOAT, [10])
+    size_init = numpy_helper.from_array(np.array(10, dtype=np.int64), name=_p(op_name, "size"))
+    node = helper.make_node(
+        op_name, [_p(op_name, "size")], [_p(op_name, "output")],
+        name=_p(op_name, "node"), periodic=1, output_datatype=TensorProto.FLOAT,
+    )
+    return [node], [], [out], [size_init]
+
+
 def make_softmax(op_name: str, opset: int):
     inp = helper.make_tensor_value_info(_p(op_name, "input"), TensorProto.FLOAT, [2, 3, 4])
     out = helper.make_tensor_value_info(_p(op_name, "output"), TensorProto.FLOAT, [2, 3, 4])
@@ -1060,6 +1071,7 @@ GENERATORS = {
     "if_op": make_if_op,
     "deform_conv": make_deform_conv,
     "dft": make_dft,
+    "hamming_window": make_hamming_window,
     "softmax": make_softmax,
     "log_softmax": make_log_softmax,
     "hardmax": make_hardmax,

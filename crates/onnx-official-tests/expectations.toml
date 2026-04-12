@@ -2908,8 +2908,8 @@ tracking = "tracel-ai/burn-onnx"
 
 [test_hammingwindow]
 status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): HammingWindow (node 'hammingwindow1')"
-tracking = "#314"
+reason = "HammingWindow requires size as compile-time constant; official test passes it as runtime graph input"
+tracking = "#161"
 
 [test_hammingwindow_expanded]
 status = "skip-compile"
@@ -2918,8 +2918,8 @@ tracking = "tracel-ai/burn-onnx"
 
 [test_hammingwindow_symmetric]
 status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): HammingWindow (node 'hammingwindow1')"
-tracking = "#314"
+reason = "HammingWindow requires size as compile-time constant; official test passes it as runtime graph input"
+tracking = "#161"
 
 [test_hammingwindow_symmetric_expanded]
 status = "skip-compile"
