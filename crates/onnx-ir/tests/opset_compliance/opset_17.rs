@@ -43,7 +43,28 @@ fn hamming_window(graph: &OnnxGraph) {
         HammingWindowConfig {
             periodic: true,
             output_dtype: F32,
-            size: 10,
+            size: Static(
+                10,
+            ),
+        }
+    "#);
+}
+
+#[rstest]
+fn hann_window(graph: &OnnxGraph) {
+    let node = find_node(graph, "hannwindow");
+    insta::assert_snapshot!(format!("{node}"), @r#"
+    HannWindow "hannwindow1"
+      Inputs:
+      Outputs:
+        hannwindow1_out1: F32[10]
+      Config:
+        HannWindowConfig {
+            periodic: true,
+            output_dtype: F32,
+            size: Static(
+                10,
+            ),
         }
     "#);
 }
@@ -55,8 +76,8 @@ fn layer_normalization(graph: &OnnxGraph) {
     LayerNormalization "layernormalization1"
       Inputs:
         layernormalization_input: F32[2, 3, 4]
-        _: F32[4] [static(1)]
         _: F32[4] [static(2)]
+        _: F32[4] [static(3)]
       Outputs:
         layernormalization1_out1: F32[2, 3, 4]
       Config:

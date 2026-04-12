@@ -234,6 +234,7 @@ impl_node_codegen_dispatch! {
     // Signal processing ops
     Dft,
     HammingWindow,
+    HannWindow,
 
     // Test ops
     IsInf,

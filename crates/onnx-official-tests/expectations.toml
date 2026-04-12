@@ -2907,9 +2907,7 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_hammingwindow]
-status = "skip-codegen"
-reason = "HammingWindow requires size as compile-time constant; official test passes it as runtime graph input"
-tracking = "#161"
+status = "pass"
 
 [test_hammingwindow_expanded]
 status = "skip-compile"
@@ -2917,9 +2915,7 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_hammingwindow_symmetric]
-status = "skip-codegen"
-reason = "HammingWindow requires size as compile-time constant; official test passes it as runtime graph input"
-tracking = "#161"
+status = "pass"
 
 [test_hammingwindow_symmetric_expanded]
 status = "skip-compile"
@@ -2927,9 +2923,7 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_hannwindow]
-status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): HannWindow (node 'hannwindow1')"
-tracking = "#314"
+status = "pass"
 
 [test_hannwindow_expanded]
 status = "skip-compile"
@@ -2937,9 +2931,7 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_hannwindow_symmetric]
-status = "skip-codegen"
-reason = "Unsupported ONNX operation(s): HannWindow (node 'hannwindow1')"
-tracking = "#314"
+status = "pass"
 
 [test_hannwindow_symmetric_expanded]
 status = "skip-compile"

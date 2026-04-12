@@ -169,6 +169,7 @@ MIN_OPSET = {
     # Signal processing
     "DFT": 17,
     "HammingWindow": 17,
+    "HannWindow": 17,
 }
 MANIFEST_PATH = (
     REPO_ROOT

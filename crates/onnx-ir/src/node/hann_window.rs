@@ -1,9 +1,9 @@
-//! # HammingWindow
+//! # HannWindow
 //!
-//! Generates a Hamming window as described in the paper
+//! Generates a Hann window as described in the paper
 //! <https://ieeexplore.ieee.org/document/1455106>.
 //!
-//! **ONNX Spec**: <https://onnx.ai/onnx/operators/onnx__HammingWindow.html>
+//! **ONNX Spec**: <https://onnx.ai/onnx/operators/onnx__HannWindow.html>
 //!
 //! ## Opset Versions
 //! - **Opset 17**: Initial version with size input, periodic and output_datatype attributes.
@@ -20,11 +20,11 @@ use crate::processor::{
 
 pub use crate::node::window_common::WindowSize;
 
-const OP_NAME: &str = "HammingWindow";
+const OP_NAME: &str = "HannWindow";
 
-/// Configuration for the HammingWindow operation.
+/// Configuration for the HannWindow operation.
 #[derive(Debug, Clone)]
-pub struct HammingWindowConfig {
+pub struct HannWindowConfig {
     /// If true, returns a periodic window. If false, returns a symmetric window.
     pub periodic: bool,
     /// The output data type.
@@ -33,7 +33,7 @@ pub struct HammingWindowConfig {
     pub size: WindowSize,
 }
 
-impl Default for HammingWindowConfig {
+impl Default for HannWindowConfig {
     fn default() -> Self {
         Self {
             periodic: true,
@@ -43,19 +43,19 @@ impl Default for HammingWindowConfig {
     }
 }
 
-/// Node representation for HammingWindow operation.
+/// Node representation for HannWindow operation.
 #[derive(Debug, Clone, NodeBuilder)]
-pub struct HammingWindowNode {
+pub struct HannWindowNode {
     pub name: String,
     pub inputs: Vec<Argument>,
     pub outputs: Vec<Argument>,
-    pub config: HammingWindowConfig,
+    pub config: HannWindowConfig,
 }
 
-pub(crate) struct HammingWindowProcessor;
+pub(crate) struct HannWindowProcessor;
 
-impl NodeProcessor for HammingWindowProcessor {
-    type Config = HammingWindowConfig;
+impl NodeProcessor for HannWindowProcessor {
+    type Config = HannWindowConfig;
 
     fn spec(&self) -> NodeSpec {
         NodeSpec {
@@ -167,7 +167,7 @@ impl NodeProcessor for HammingWindowProcessor {
             None => WindowSize::Runtime(RuntimeInputRef::new(node.inputs[0].name.clone(), 0)),
         };
 
-        Ok(HammingWindowConfig {
+        Ok(HannWindowConfig {
             periodic,
             output_dtype,
             size,
@@ -187,7 +187,7 @@ impl NodeProcessor for HammingWindowProcessor {
             builder.inputs.clear();
         }
 
-        Node::HammingWindow(HammingWindowNode {
+        Node::HannWindow(HannWindowNode {
             name: builder.name,
             inputs: builder.inputs,
             outputs: builder.outputs,
@@ -204,13 +204,13 @@ mod tests {
     use crate::processor::OutputPreferences;
 
     #[test]
-    fn test_hamming_window_default() {
-        let mut node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+    fn test_hann_window_default() {
+        let mut node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_scalar_tensor_i64("size", Some(10))
             .output_tensor_f32("output", 0, None)
             .build_with_graph_data(17);
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let prefs = OutputPreferences::new();
         processor.infer_types(&mut node, 17, &prefs).unwrap();
 
@@ -225,14 +225,14 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_double_output() {
-        let mut node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+    fn test_hann_window_double_output() {
+        let mut node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_scalar_tensor_i64("size", Some(8))
             .output_tensor_f32("output", 0, None)
             .attr_int("output_datatype", 11) // DOUBLE
             .build_with_graph_data(17);
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let prefs = OutputPreferences::new();
         processor.infer_types(&mut node, 17, &prefs).unwrap();
 
@@ -247,14 +247,14 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_symmetric() {
-        let node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+    fn test_hann_window_symmetric() {
+        let node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_scalar_tensor_i64("size", Some(10))
             .output_tensor_f32("output", 0, None)
             .attr_int("periodic", 0)
             .build_with_graph_data(17);
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let config = processor.extract_config(&node, 17).unwrap();
         assert!(!config.periodic);
         assert!(matches!(config.size, WindowSize::Static(10)));
@@ -262,13 +262,13 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_runtime_size() {
-        let mut node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+    fn test_hann_window_runtime_size() {
+        let mut node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_scalar_i64("size")
             .output_tensor_f32("output", 0, None)
             .build();
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let prefs = OutputPreferences::new();
         processor.infer_types(&mut node, 17, &prefs).unwrap();
 
@@ -285,14 +285,14 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_i32_input_runtime() {
+    fn test_hann_window_i32_input_runtime() {
         // i32 runtime input (not a constant) - exercises the input dtype validation for i32
-        let mut node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+        let mut node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_tensor_i32("size", 0, None)
             .output_tensor_f32("output", 0, None)
             .build();
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let prefs = OutputPreferences::new();
         processor.infer_types(&mut node, 17, &prefs).unwrap();
 
@@ -306,13 +306,13 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_float_input_rejected() {
-        let mut node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+    fn test_hann_window_float_input_rejected() {
+        let mut node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_scalar_f32("size")
             .output_tensor_f32("output", 0, None)
             .build();
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let prefs = OutputPreferences::new();
         let result = processor.infer_types(&mut node, 17, &prefs);
         assert!(
@@ -322,13 +322,13 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_negative_size() {
-        let mut node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+    fn test_hann_window_negative_size() {
+        let mut node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_scalar_tensor_i64("size", Some(-5))
             .output_tensor_f32("output", 0, None)
             .build_with_graph_data(17);
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let prefs = OutputPreferences::new();
         let result = processor.infer_types(&mut node, 17, &prefs);
         assert!(
@@ -338,14 +338,14 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_integer_output_dtype_rejected() {
-        let mut node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+    fn test_hann_window_integer_output_dtype_rejected() {
+        let mut node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_scalar_tensor_i64("size", Some(10))
             .output_tensor_f32("output", 0, None)
             .attr_int("output_datatype", 7) // INT64
             .build_with_graph_data(17);
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let prefs = OutputPreferences::new();
         let result = processor.infer_types(&mut node, 17, &prefs);
         assert!(
@@ -355,13 +355,13 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_opset_too_low() {
-        let mut node = TestNodeBuilder::new(NodeType::HammingWindow, "test_hamming")
+    fn test_hann_window_opset_too_low() {
+        let mut node = TestNodeBuilder::new(NodeType::HannWindow, "test_hann")
             .input_scalar_tensor_i64("size", Some(10))
             .output_tensor_f32("output", 0, None)
             .build_with_graph_data(16);
 
-        let processor = HammingWindowProcessor;
+        let processor = HannWindowProcessor;
         let prefs = OutputPreferences::new();
         let result = processor.infer_types(&mut node, 16, &prefs);
         assert!(result.is_err());

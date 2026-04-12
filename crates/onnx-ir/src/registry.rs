@@ -587,6 +587,10 @@ impl ProcessorRegistry {
             NodeType::HammingWindow,
             Box::new(crate::node::hamming_window::HammingWindowProcessor),
         );
+        registry.register(
+            NodeType::HannWindow,
+            Box::new(crate::node::hann_window::HannWindowProcessor),
+        );
 
         // Misc operations
         registry.register(

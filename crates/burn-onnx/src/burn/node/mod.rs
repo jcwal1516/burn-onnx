@@ -80,6 +80,7 @@ pub(crate) mod grid_sample;
 pub(crate) mod group_norm;
 pub(crate) mod gru;
 pub(crate) mod hamming_window;
+pub(crate) mod hann_window;
 pub(crate) mod hard_sigmoid;
 pub(crate) mod hard_swish;
 pub(crate) mod hardmax;

@@ -361,7 +361,7 @@ define_node_enum! {
     GridSample => grid_sample::GridSampleNode,
     Gru => gru::GruNode,
     HammingWindow => hamming_window::HammingWindowNode,
-    HannWindow => unsupported::HannWindowNode,
+    HannWindow => hann_window::HannWindowNode,
     Hardmax => hardmax::HardmaxNode,
     Im => unsupported::ImNode,
     ImageDecoder => unsupported::ImageDecoderNode,

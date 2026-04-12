@@ -1,7 +1,7 @@
 use super::prelude::*;
-use onnx_ir::node::hamming_window::WindowSize;
+use onnx_ir::node::hann_window::WindowSize;
 
-impl NodeCodegen for onnx_ir::node::hamming_window::HammingWindowNode {
+impl NodeCodegen for onnx_ir::node::hann_window::HannWindowNode {
     fn inputs(&self) -> &[Argument] {
         &self.inputs
     }
@@ -25,20 +25,20 @@ impl NodeCodegen for onnx_ir::node::hamming_window::HammingWindowNode {
                 let name = arg_to_ident(arg);
                 quote! { {
                     let __size = #name;
-                    assert!(__size >= 0, "HammingWindow: size must be non-negative, got {}", __size);
+                    assert!(__size >= 0, "HannWindow: size must be non-negative, got {}", __size);
                     __size as usize
                 } }
             }
         };
 
         quote! {
-            let #output = hamming_window::<B>(#size_expr, #periodic, &self.device)
+            let #output = hann_window::<B>(#size_expr, #periodic, &self.device)
                 .cast(#output_dtype);
         }
     }
 
     fn register_imports(&self, imports: &mut BurnImports) {
-        imports.register("burn::tensor::signal::hamming_window");
+        imports.register("burn::tensor::signal::hann_window");
     }
 }
 
@@ -47,25 +47,23 @@ mod tests {
     use super::super::test_helpers::*;
     use burn::tensor::DType;
     use insta::assert_snapshot;
-    use onnx_ir::node::hamming_window::{
-        HammingWindowConfig, HammingWindowNodeBuilder, WindowSize,
-    };
+    use onnx_ir::node::hann_window::{HannWindowConfig, HannWindowNodeBuilder, WindowSize};
 
     #[test]
-    fn test_hamming_window_static() {
-        let config = HammingWindowConfig {
+    fn test_hann_window_static() {
+        let config = HannWindowConfig {
             periodic: true,
             output_dtype: DType::F32,
             size: WindowSize::Static(10),
         };
-        let node = HammingWindowNodeBuilder::new("hamming1")
+        let node = HannWindowNodeBuilder::new("hann1")
             .output_tensor("output", 1, DType::F32)
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self) -> Tensor<B, 1> {
-            let output = hamming_window::<B>(10usize, true, &self.device)
+            let output = hann_window::<B>(10usize, true, &self.device)
                 .cast(burn::tensor::DType::F32);
             output
         }
@@ -73,20 +71,20 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_symmetric() {
-        let config = HammingWindowConfig {
+    fn test_hann_window_symmetric() {
+        let config = HannWindowConfig {
             periodic: false,
             output_dtype: DType::F64,
             size: WindowSize::Static(8),
         };
-        let node = HammingWindowNodeBuilder::new("hamming1")
+        let node = HannWindowNodeBuilder::new("hann1")
             .output_tensor("output", 1, DType::F64)
             .config(config)
             .build();
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r"
         pub fn forward(&self) -> Tensor<B, 1> {
-            let output = hamming_window::<B>(8usize, false, &self.device)
+            let output = hann_window::<B>(8usize, false, &self.device)
                 .cast(burn::tensor::DType::F64);
             output
         }
@@ -94,9 +92,9 @@ mod tests {
     }
 
     #[test]
-    fn test_hamming_window_runtime() {
+    fn test_hann_window_runtime() {
         use onnx_ir::ir::RuntimeInputRef;
-        let config = HammingWindowConfig {
+        let config = HannWindowConfig {
             periodic: true,
             output_dtype: DType::F32,
             size: WindowSize::Runtime(RuntimeInputRef {
@@ -104,7 +102,7 @@ mod tests {
                 input_index: 0,
             }),
         };
-        let node = HammingWindowNodeBuilder::new("hamming1")
+        let node = HannWindowNodeBuilder::new("hann1")
             .input_scalar("size", DType::I64)
             .output_tensor("output", 1, DType::F32)
             .config(config)
@@ -112,14 +110,13 @@ mod tests {
         let code = codegen_forward_default(&node);
         assert_snapshot!(code, @r#"
         pub fn forward(&self, size: i64) -> Tensor<B, 1> {
-            let output = hamming_window::<
+            let output = hann_window::<
                 B,
             >(
                     {
                         let __size = size;
                         assert!(
-                            __size >= 0, "HammingWindow: size must be non-negative, got {}",
-                            __size
+                            __size >= 0, "HannWindow: size must be non-negative, got {}", __size
                         );
                         __size as usize
                     },
