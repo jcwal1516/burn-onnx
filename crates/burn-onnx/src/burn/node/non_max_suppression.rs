@@ -175,11 +175,16 @@ impl NodeCodegen for NonMaxSuppressionNode {
                 let __device = #boxes.device();
                 let [__num_batches, __num_boxes, _] = #boxes.shape().dims();
                 let [_, __num_classes, _] = #scores.shape().dims();
-                let mut __selected_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::new();
+                let mut __selected_chunks: alloc::vec::Vec<Tensor<B, 2, Int>> =
+                    alloc::vec::Vec::new();
 
                 // ONNX: max_output_boxes_per_class == 0 means "select no indices"
                 // burn-vision: max_output_boxes == 0 means "unlimited"
                 if __max_output_boxes_per_class > 0 {
+                    let __max_output_boxes = core::convert::TryFrom::try_from(
+                        __max_output_boxes_per_class,
+                    )
+                    .unwrap_or(usize::MAX);
                     for __b in 0..__num_batches {
                         let __boxes_batch_raw: Tensor<B, 2> = #boxes
                             .clone()
@@ -200,28 +205,57 @@ impl NodeCodegen for NonMaxSuppressionNode {
                             let __nms_opts = NmsOptions {
                                 iou_threshold: __iou_threshold,
                                 score_threshold: __score_threshold.unwrap_or(f32::NEG_INFINITY),
-                                max_output_boxes: __max_output_boxes_per_class as usize,
+                                max_output_boxes: __max_output_boxes,
                             };
 
                             let __kept: Tensor<B, 1, Int> =
                                 __corner_boxes.clone().nms(__class_scores, __nms_opts);
-                            let __kept_data = __kept.to_data().convert::<i64>();
-                            let __kept_vec: alloc::vec::Vec<i64> =
-                                __kept_data.to_vec().expect("NMS kept indices");
-                            for __box_idx in __kept_vec {
-                                __selected_indices.extend_from_slice(
-                                    &[__b as i64, __c as i64, __box_idx],
+                            let [__num_kept] = __kept.shape().dims();
+
+                            if __num_kept > 0 {
+                                let __batch_indices = Tensor::<B, 1, Int>::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__b as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                let __class_indices = Tensor::<B, 1, Int>::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__c as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+
+                                __selected_chunks.push(
+                                    Tensor::cat(
+                                        alloc::vec![
+                                            __batch_indices.unsqueeze_dim(1),
+                                            __class_indices.unsqueeze_dim(1),
+                                            __kept
+                                                .cast(burn::tensor::DType::I64)
+                                                .unsqueeze_dim(1),
+                                        ],
+                                        1,
+                                    ),
                                 );
                             }
                         }
                     }
                 }
 
-                let __num_selected = __selected_indices.len() / 3;
-                Tensor::<B, 2, Int>::from_data(
-                    burn::tensor::TensorData::new(__selected_indices, [__num_selected, 3]),
-                    (&__device, burn::tensor::DType::I64),
-                )
+                if __selected_chunks.is_empty() {
+                    Tensor::<B, 2, Int>::from_data(
+                        burn::tensor::TensorData::new(
+                            alloc::vec::Vec::<i64>::new(),
+                            [0, 3],
+                        ),
+                        (&__device, burn::tensor::DType::I64),
+                    )
+                } else {
+                    Tensor::cat(__selected_chunks, 0)
+                }
             };
         }
     }
@@ -248,7 +282,7 @@ mod tests {
             .build();
 
         let code = codegen_forward_default(&node);
-        assert_snapshot!(code, @r#"
+        assert_snapshot!(code, @"
         pub fn forward(
             &self,
             boxes: Tensor<B, 3>,
@@ -264,8 +298,12 @@ mod tests {
                 let __device = boxes.device();
                 let [__num_batches, __num_boxes, _] = boxes.shape().dims();
                 let [_, __num_classes, _] = scores.shape().dims();
-                let mut __selected_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::new();
+                let mut __selected_chunks: alloc::vec::Vec<Tensor<B, 2, Int>> = alloc::vec::Vec::new();
                 if __max_output_boxes_per_class > 0 {
+                    let __max_output_boxes = core::convert::TryFrom::try_from(
+                            __max_output_boxes_per_class,
+                        )
+                        .unwrap_or(usize::MAX);
                     for __b in 0..__num_batches {
                         let __boxes_batch_raw: Tensor<B, 2> = boxes
                             .clone()
@@ -312,35 +350,66 @@ mod tests {
                             let __nms_opts = NmsOptions {
                                 iou_threshold: __iou_threshold,
                                 score_threshold: __score_threshold.unwrap_or(f32::NEG_INFINITY),
-                                max_output_boxes: __max_output_boxes_per_class as usize,
+                                max_output_boxes: __max_output_boxes,
                             };
                             let __kept: Tensor<B, 1, Int> = __corner_boxes
                                 .clone()
                                 .nms(__class_scores, __nms_opts);
-                            let __kept_data = __kept.to_data().convert::<i64>();
-                            let __kept_vec: alloc::vec::Vec<i64> = __kept_data
-                                .to_vec()
-                                .expect("NMS kept indices");
-                            for __box_idx in __kept_vec {
-                                __selected_indices
-                                    .extend_from_slice(&[__b as i64, __c as i64, __box_idx]);
+                            let [__num_kept] = __kept.shape().dims();
+                            if __num_kept > 0 {
+                                let __batch_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__b as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                let __class_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__c as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                __selected_chunks
+                                    .push(
+                                        Tensor::cat(
+                                            alloc::vec![
+                                                __batch_indices.unsqueeze_dim(1), __class_indices
+                                                .unsqueeze_dim(1), __kept.cast(burn::tensor::DType::I64)
+                                                .unsqueeze_dim(1),
+                                            ],
+                                            1,
+                                        ),
+                                    );
                             }
                         }
                     }
                 }
-                let __num_selected = __selected_indices.len() / 3;
-                Tensor::<
-                    B,
-                    2,
-                    Int,
-                >::from_data(
-                    burn::tensor::TensorData::new(__selected_indices, [__num_selected, 3]),
-                    (&__device, burn::tensor::DType::I64),
-                )
+                if __selected_chunks.is_empty() {
+                    Tensor::<
+                        B,
+                        2,
+                        Int,
+                    >::from_data(
+                        burn::tensor::TensorData::new(alloc::vec::Vec::<i64>::new(), [0, 3]),
+                        (&__device, burn::tensor::DType::I64),
+                    )
+                } else {
+                    Tensor::cat(__selected_chunks, 0)
+                }
             };
             selected_indices
         }
-        "#);
+        ");
     }
 
     #[test]
@@ -357,7 +426,7 @@ mod tests {
             .build();
 
         let code = codegen_forward_default(&node);
-        assert_snapshot!(code, @r#"
+        assert_snapshot!(code, @"
         pub fn forward(
             &self,
             boxes: Tensor<B, 3>,
@@ -377,8 +446,12 @@ mod tests {
                 let __device = boxes.device();
                 let [__num_batches, __num_boxes, _] = boxes.shape().dims();
                 let [_, __num_classes, _] = scores.shape().dims();
-                let mut __selected_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::new();
+                let mut __selected_chunks: alloc::vec::Vec<Tensor<B, 2, Int>> = alloc::vec::Vec::new();
                 if __max_output_boxes_per_class > 0 {
+                    let __max_output_boxes = core::convert::TryFrom::try_from(
+                            __max_output_boxes_per_class,
+                        )
+                        .unwrap_or(usize::MAX);
                     for __b in 0..__num_batches {
                         let __boxes_batch_raw: Tensor<B, 2> = boxes
                             .clone()
@@ -425,35 +498,66 @@ mod tests {
                             let __nms_opts = NmsOptions {
                                 iou_threshold: __iou_threshold,
                                 score_threshold: __score_threshold.unwrap_or(f32::NEG_INFINITY),
-                                max_output_boxes: __max_output_boxes_per_class as usize,
+                                max_output_boxes: __max_output_boxes,
                             };
                             let __kept: Tensor<B, 1, Int> = __corner_boxes
                                 .clone()
                                 .nms(__class_scores, __nms_opts);
-                            let __kept_data = __kept.to_data().convert::<i64>();
-                            let __kept_vec: alloc::vec::Vec<i64> = __kept_data
-                                .to_vec()
-                                .expect("NMS kept indices");
-                            for __box_idx in __kept_vec {
-                                __selected_indices
-                                    .extend_from_slice(&[__b as i64, __c as i64, __box_idx]);
+                            let [__num_kept] = __kept.shape().dims();
+                            if __num_kept > 0 {
+                                let __batch_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__b as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                let __class_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__c as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                __selected_chunks
+                                    .push(
+                                        Tensor::cat(
+                                            alloc::vec![
+                                                __batch_indices.unsqueeze_dim(1), __class_indices
+                                                .unsqueeze_dim(1), __kept.cast(burn::tensor::DType::I64)
+                                                .unsqueeze_dim(1),
+                                            ],
+                                            1,
+                                        ),
+                                    );
                             }
                         }
                     }
                 }
-                let __num_selected = __selected_indices.len() / 3;
-                Tensor::<
-                    B,
-                    2,
-                    Int,
-                >::from_data(
-                    burn::tensor::TensorData::new(__selected_indices, [__num_selected, 3]),
-                    (&__device, burn::tensor::DType::I64),
-                )
+                if __selected_chunks.is_empty() {
+                    Tensor::<
+                        B,
+                        2,
+                        Int,
+                    >::from_data(
+                        burn::tensor::TensorData::new(alloc::vec::Vec::<i64>::new(), [0, 3]),
+                        (&__device, burn::tensor::DType::I64),
+                    )
+                } else {
+                    Tensor::cat(__selected_chunks, 0)
+                }
             };
             selected_indices
         }
-        "#);
+        ");
     }
 
     #[test]
@@ -470,7 +574,7 @@ mod tests {
             .build();
 
         let code = codegen_forward_default(&node);
-        assert_snapshot!(code, @r#"
+        assert_snapshot!(code, @"
         pub fn forward(
             &self,
             boxes: Tensor<B, 3>,
@@ -490,8 +594,12 @@ mod tests {
                 let __device = boxes.device();
                 let [__num_batches, __num_boxes, _] = boxes.shape().dims();
                 let [_, __num_classes, _] = scores.shape().dims();
-                let mut __selected_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::new();
+                let mut __selected_chunks: alloc::vec::Vec<Tensor<B, 2, Int>> = alloc::vec::Vec::new();
                 if __max_output_boxes_per_class > 0 {
+                    let __max_output_boxes = core::convert::TryFrom::try_from(
+                            __max_output_boxes_per_class,
+                        )
+                        .unwrap_or(usize::MAX);
                     for __b in 0..__num_batches {
                         let __boxes_batch_raw: Tensor<B, 2> = boxes
                             .clone()
@@ -538,35 +646,66 @@ mod tests {
                             let __nms_opts = NmsOptions {
                                 iou_threshold: __iou_threshold,
                                 score_threshold: __score_threshold.unwrap_or(f32::NEG_INFINITY),
-                                max_output_boxes: __max_output_boxes_per_class as usize,
+                                max_output_boxes: __max_output_boxes,
                             };
                             let __kept: Tensor<B, 1, Int> = __corner_boxes
                                 .clone()
                                 .nms(__class_scores, __nms_opts);
-                            let __kept_data = __kept.to_data().convert::<i64>();
-                            let __kept_vec: alloc::vec::Vec<i64> = __kept_data
-                                .to_vec()
-                                .expect("NMS kept indices");
-                            for __box_idx in __kept_vec {
-                                __selected_indices
-                                    .extend_from_slice(&[__b as i64, __c as i64, __box_idx]);
+                            let [__num_kept] = __kept.shape().dims();
+                            if __num_kept > 0 {
+                                let __batch_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__b as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                let __class_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__c as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                __selected_chunks
+                                    .push(
+                                        Tensor::cat(
+                                            alloc::vec![
+                                                __batch_indices.unsqueeze_dim(1), __class_indices
+                                                .unsqueeze_dim(1), __kept.cast(burn::tensor::DType::I64)
+                                                .unsqueeze_dim(1),
+                                            ],
+                                            1,
+                                        ),
+                                    );
                             }
                         }
                     }
                 }
-                let __num_selected = __selected_indices.len() / 3;
-                Tensor::<
-                    B,
-                    2,
-                    Int,
-                >::from_data(
-                    burn::tensor::TensorData::new(__selected_indices, [__num_selected, 3]),
-                    (&__device, burn::tensor::DType::I64),
-                )
+                if __selected_chunks.is_empty() {
+                    Tensor::<
+                        B,
+                        2,
+                        Int,
+                    >::from_data(
+                        burn::tensor::TensorData::new(alloc::vec::Vec::<i64>::new(), [0, 3]),
+                        (&__device, burn::tensor::DType::I64),
+                    )
+                } else {
+                    Tensor::cat(__selected_chunks, 0)
+                }
             };
             selected_indices
         }
-        "#);
+        ");
     }
 
     #[test]
@@ -583,7 +722,7 @@ mod tests {
             .build();
 
         let code = codegen_forward_default(&node);
-        assert_snapshot!(code, @r#"
+        assert_snapshot!(code, @"
         pub fn forward(
             &self,
             boxes: Tensor<B, 3>,
@@ -599,8 +738,12 @@ mod tests {
                 let __device = boxes.device();
                 let [__num_batches, __num_boxes, _] = boxes.shape().dims();
                 let [_, __num_classes, _] = scores.shape().dims();
-                let mut __selected_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::new();
+                let mut __selected_chunks: alloc::vec::Vec<Tensor<B, 2, Int>> = alloc::vec::Vec::new();
                 if __max_output_boxes_per_class > 0 {
+                    let __max_output_boxes = core::convert::TryFrom::try_from(
+                            __max_output_boxes_per_class,
+                        )
+                        .unwrap_or(usize::MAX);
                     for __b in 0..__num_batches {
                         let __boxes_batch_raw: Tensor<B, 2> = boxes
                             .clone()
@@ -649,35 +792,66 @@ mod tests {
                             let __nms_opts = NmsOptions {
                                 iou_threshold: __iou_threshold,
                                 score_threshold: __score_threshold.unwrap_or(f32::NEG_INFINITY),
-                                max_output_boxes: __max_output_boxes_per_class as usize,
+                                max_output_boxes: __max_output_boxes,
                             };
                             let __kept: Tensor<B, 1, Int> = __corner_boxes
                                 .clone()
                                 .nms(__class_scores, __nms_opts);
-                            let __kept_data = __kept.to_data().convert::<i64>();
-                            let __kept_vec: alloc::vec::Vec<i64> = __kept_data
-                                .to_vec()
-                                .expect("NMS kept indices");
-                            for __box_idx in __kept_vec {
-                                __selected_indices
-                                    .extend_from_slice(&[__b as i64, __c as i64, __box_idx]);
+                            let [__num_kept] = __kept.shape().dims();
+                            if __num_kept > 0 {
+                                let __batch_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__b as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                let __class_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__c as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                __selected_chunks
+                                    .push(
+                                        Tensor::cat(
+                                            alloc::vec![
+                                                __batch_indices.unsqueeze_dim(1), __class_indices
+                                                .unsqueeze_dim(1), __kept.cast(burn::tensor::DType::I64)
+                                                .unsqueeze_dim(1),
+                                            ],
+                                            1,
+                                        ),
+                                    );
                             }
                         }
                     }
                 }
-                let __num_selected = __selected_indices.len() / 3;
-                Tensor::<
-                    B,
-                    2,
-                    Int,
-                >::from_data(
-                    burn::tensor::TensorData::new(__selected_indices, [__num_selected, 3]),
-                    (&__device, burn::tensor::DType::I64),
-                )
+                if __selected_chunks.is_empty() {
+                    Tensor::<
+                        B,
+                        2,
+                        Int,
+                    >::from_data(
+                        burn::tensor::TensorData::new(alloc::vec::Vec::<i64>::new(), [0, 3]),
+                        (&__device, burn::tensor::DType::I64),
+                    )
+                } else {
+                    Tensor::cat(__selected_chunks, 0)
+                }
             };
             selected_indices
         }
-        "#);
+        ");
     }
 
     #[test]
@@ -690,7 +864,7 @@ mod tests {
             .build();
 
         let code = codegen_forward_default(&node);
-        assert_snapshot!(code, @r#"
+        assert_snapshot!(code, @"
         pub fn forward(&self, boxes: Tensor<B, 3>, scores: Tensor<B, 3>) -> Tensor<B, 2, Int> {
             let selected_indices = {
                 let __max_output_boxes_per_class: i64 = 0i64;
@@ -699,8 +873,12 @@ mod tests {
                 let __device = boxes.device();
                 let [__num_batches, __num_boxes, _] = boxes.shape().dims();
                 let [_, __num_classes, _] = scores.shape().dims();
-                let mut __selected_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::new();
+                let mut __selected_chunks: alloc::vec::Vec<Tensor<B, 2, Int>> = alloc::vec::Vec::new();
                 if __max_output_boxes_per_class > 0 {
+                    let __max_output_boxes = core::convert::TryFrom::try_from(
+                            __max_output_boxes_per_class,
+                        )
+                        .unwrap_or(usize::MAX);
                     for __b in 0..__num_batches {
                         let __boxes_batch_raw: Tensor<B, 2> = boxes
                             .clone()
@@ -747,35 +925,66 @@ mod tests {
                             let __nms_opts = NmsOptions {
                                 iou_threshold: __iou_threshold,
                                 score_threshold: __score_threshold.unwrap_or(f32::NEG_INFINITY),
-                                max_output_boxes: __max_output_boxes_per_class as usize,
+                                max_output_boxes: __max_output_boxes,
                             };
                             let __kept: Tensor<B, 1, Int> = __corner_boxes
                                 .clone()
                                 .nms(__class_scores, __nms_opts);
-                            let __kept_data = __kept.to_data().convert::<i64>();
-                            let __kept_vec: alloc::vec::Vec<i64> = __kept_data
-                                .to_vec()
-                                .expect("NMS kept indices");
-                            for __box_idx in __kept_vec {
-                                __selected_indices
-                                    .extend_from_slice(&[__b as i64, __c as i64, __box_idx]);
+                            let [__num_kept] = __kept.shape().dims();
+                            if __num_kept > 0 {
+                                let __batch_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__b as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                let __class_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__c as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                __selected_chunks
+                                    .push(
+                                        Tensor::cat(
+                                            alloc::vec![
+                                                __batch_indices.unsqueeze_dim(1), __class_indices
+                                                .unsqueeze_dim(1), __kept.cast(burn::tensor::DType::I64)
+                                                .unsqueeze_dim(1),
+                                            ],
+                                            1,
+                                        ),
+                                    );
                             }
                         }
                     }
                 }
-                let __num_selected = __selected_indices.len() / 3;
-                Tensor::<
-                    B,
-                    2,
-                    Int,
-                >::from_data(
-                    burn::tensor::TensorData::new(__selected_indices, [__num_selected, 3]),
-                    (&__device, burn::tensor::DType::I64),
-                )
+                if __selected_chunks.is_empty() {
+                    Tensor::<
+                        B,
+                        2,
+                        Int,
+                    >::from_data(
+                        burn::tensor::TensorData::new(alloc::vec::Vec::<i64>::new(), [0, 3]),
+                        (&__device, burn::tensor::DType::I64),
+                    )
+                } else {
+                    Tensor::cat(__selected_chunks, 0)
+                }
             };
             selected_indices
         }
-        "#);
+        ");
     }
 
     #[test]
@@ -791,7 +1000,7 @@ mod tests {
             .build();
 
         let code = codegen_forward_default(&node);
-        assert_snapshot!(code, @r#"
+        assert_snapshot!(code, @"
         pub fn forward(
             &self,
             boxes: Tensor<B, 3>,
@@ -806,8 +1015,12 @@ mod tests {
                 let __device = boxes.device();
                 let [__num_batches, __num_boxes, _] = boxes.shape().dims();
                 let [_, __num_classes, _] = scores.shape().dims();
-                let mut __selected_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::new();
+                let mut __selected_chunks: alloc::vec::Vec<Tensor<B, 2, Int>> = alloc::vec::Vec::new();
                 if __max_output_boxes_per_class > 0 {
+                    let __max_output_boxes = core::convert::TryFrom::try_from(
+                            __max_output_boxes_per_class,
+                        )
+                        .unwrap_or(usize::MAX);
                     for __b in 0..__num_batches {
                         let __boxes_batch_raw: Tensor<B, 2> = boxes
                             .clone()
@@ -854,35 +1067,66 @@ mod tests {
                             let __nms_opts = NmsOptions {
                                 iou_threshold: __iou_threshold,
                                 score_threshold: __score_threshold.unwrap_or(f32::NEG_INFINITY),
-                                max_output_boxes: __max_output_boxes_per_class as usize,
+                                max_output_boxes: __max_output_boxes,
                             };
                             let __kept: Tensor<B, 1, Int> = __corner_boxes
                                 .clone()
                                 .nms(__class_scores, __nms_opts);
-                            let __kept_data = __kept.to_data().convert::<i64>();
-                            let __kept_vec: alloc::vec::Vec<i64> = __kept_data
-                                .to_vec()
-                                .expect("NMS kept indices");
-                            for __box_idx in __kept_vec {
-                                __selected_indices
-                                    .extend_from_slice(&[__b as i64, __c as i64, __box_idx]);
+                            let [__num_kept] = __kept.shape().dims();
+                            if __num_kept > 0 {
+                                let __batch_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__b as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                let __class_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__c as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                __selected_chunks
+                                    .push(
+                                        Tensor::cat(
+                                            alloc::vec![
+                                                __batch_indices.unsqueeze_dim(1), __class_indices
+                                                .unsqueeze_dim(1), __kept.cast(burn::tensor::DType::I64)
+                                                .unsqueeze_dim(1),
+                                            ],
+                                            1,
+                                        ),
+                                    );
                             }
                         }
                     }
                 }
-                let __num_selected = __selected_indices.len() / 3;
-                Tensor::<
-                    B,
-                    2,
-                    Int,
-                >::from_data(
-                    burn::tensor::TensorData::new(__selected_indices, [__num_selected, 3]),
-                    (&__device, burn::tensor::DType::I64),
-                )
+                if __selected_chunks.is_empty() {
+                    Tensor::<
+                        B,
+                        2,
+                        Int,
+                    >::from_data(
+                        burn::tensor::TensorData::new(alloc::vec::Vec::<i64>::new(), [0, 3]),
+                        (&__device, burn::tensor::DType::I64),
+                    )
+                } else {
+                    Tensor::cat(__selected_chunks, 0)
+                }
             };
             selected_indices
         }
-        "#);
+        ");
     }
 
     #[test]
@@ -897,7 +1141,7 @@ mod tests {
             .build();
 
         let code = codegen_forward_default(&node);
-        assert_snapshot!(code, @r#"
+        assert_snapshot!(code, @"
         pub fn forward(
             &self,
             boxes: Tensor<B, 3>,
@@ -912,8 +1156,12 @@ mod tests {
                 let __device = boxes.device();
                 let [__num_batches, __num_boxes, _] = boxes.shape().dims();
                 let [_, __num_classes, _] = scores.shape().dims();
-                let mut __selected_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::new();
+                let mut __selected_chunks: alloc::vec::Vec<Tensor<B, 2, Int>> = alloc::vec::Vec::new();
                 if __max_output_boxes_per_class > 0 {
+                    let __max_output_boxes = core::convert::TryFrom::try_from(
+                            __max_output_boxes_per_class,
+                        )
+                        .unwrap_or(usize::MAX);
                     for __b in 0..__num_batches {
                         let __boxes_batch_raw: Tensor<B, 2> = boxes
                             .clone()
@@ -960,34 +1208,65 @@ mod tests {
                             let __nms_opts = NmsOptions {
                                 iou_threshold: __iou_threshold,
                                 score_threshold: __score_threshold.unwrap_or(f32::NEG_INFINITY),
-                                max_output_boxes: __max_output_boxes_per_class as usize,
+                                max_output_boxes: __max_output_boxes,
                             };
                             let __kept: Tensor<B, 1, Int> = __corner_boxes
                                 .clone()
                                 .nms(__class_scores, __nms_opts);
-                            let __kept_data = __kept.to_data().convert::<i64>();
-                            let __kept_vec: alloc::vec::Vec<i64> = __kept_data
-                                .to_vec()
-                                .expect("NMS kept indices");
-                            for __box_idx in __kept_vec {
-                                __selected_indices
-                                    .extend_from_slice(&[__b as i64, __c as i64, __box_idx]);
+                            let [__num_kept] = __kept.shape().dims();
+                            if __num_kept > 0 {
+                                let __batch_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__b as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                let __class_indices = Tensor::<
+                                    B,
+                                    1,
+                                    Int,
+                                >::from_data(
+                                    burn::tensor::TensorData::new(
+                                        alloc::vec![__c as i64; __num_kept],
+                                        [__num_kept],
+                                    ),
+                                    (&__device, burn::tensor::DType::I64),
+                                );
+                                __selected_chunks
+                                    .push(
+                                        Tensor::cat(
+                                            alloc::vec![
+                                                __batch_indices.unsqueeze_dim(1), __class_indices
+                                                .unsqueeze_dim(1), __kept.cast(burn::tensor::DType::I64)
+                                                .unsqueeze_dim(1),
+                                            ],
+                                            1,
+                                        ),
+                                    );
                             }
                         }
                     }
                 }
-                let __num_selected = __selected_indices.len() / 3;
-                Tensor::<
-                    B,
-                    2,
-                    Int,
-                >::from_data(
-                    burn::tensor::TensorData::new(__selected_indices, [__num_selected, 3]),
-                    (&__device, burn::tensor::DType::I64),
-                )
+                if __selected_chunks.is_empty() {
+                    Tensor::<
+                        B,
+                        2,
+                        Int,
+                    >::from_data(
+                        burn::tensor::TensorData::new(alloc::vec::Vec::<i64>::new(), [0, 3]),
+                        (&__device, burn::tensor::DType::I64),
+                    )
+                } else {
+                    Tensor::cat(__selected_chunks, 0)
+                }
             };
             selected_indices
         }
-        "#);
+        ");
     }
 }
