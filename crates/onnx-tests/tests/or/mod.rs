@@ -43,7 +43,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "burn-flex bool binary ops don't broadcast - tracel-ai/burn#4771"]
     fn or_broadcast_tensor_ranks() {
         let model = or_broadcast::Model::<TestBackend>::default();
         let device = Default::default();

@@ -57,7 +57,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "nearest interpolation not yet implemented in burn-flex"]
     fn grid_sample_nearest() {
         // Test grid_sample with nearest neighbor interpolation
         let device = Default::default();
@@ -88,5 +87,18 @@ mod tests {
 
         // Expected output shape: (1, 1, 3, 3)
         assert_eq!(output.dims(), [1, 1, 3, 3]);
+
+        // Expected values from PyTorch reference (F.grid_sample, mode="nearest",
+        // padding_mode="zeros", align_corners=False)
+        let expected = TensorData::from([[[
+            [0.2345f32, 0.5349, -1.6898],
+            [0.1288, -0.9890, 0.1288],
+            [0.2345, 0.3367, 0.9580],
+        ]]]);
+
+        output.to_data().assert_approx_eq(
+            &expected,
+            burn::tensor::Tolerance::<f32>::rel_abs(1e-4, 1e-4),
+        );
     }
 }

@@ -181,29 +181,19 @@ status = "pass"
 status = "pass"
 
 [test_and_bcast3v1d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_and_bcast3v2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_and_bcast4v2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_and_bcast4v3d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_and_bcast4v4d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_argmax_default_axis_example]
 status = "pass"
@@ -329,9 +319,7 @@ status = "pass"
 status = "pass"
 
 [test_attention_3d_attn_mask]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_3d_attn_mask_expanded]
 status = "skip-codegen"
@@ -352,9 +340,7 @@ tracking = "#314"
 status = "pass"
 
 [test_attention_3d_diff_heads_sizes_attn_mask]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_3d_diff_heads_sizes_attn_mask_expanded]
 status = "skip-codegen"
@@ -393,9 +379,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_3d_diff_heads_with_past_and_present]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_3d_diff_heads_with_past_and_present_expanded]
 status = "skip-codegen"
@@ -492,9 +476,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_3d_with_past_and_present]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_3d_with_past_and_present_expanded]
 status = "skip-codegen"
@@ -537,14 +519,10 @@ tracking = "#314"
 status = "pass"
 
 [test_attention_4d_attn_mask]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_attn_mask_3d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_attn_mask_3d_causal]
 status = "fail-compare"
@@ -580,9 +558,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_4d_attn_mask_bool]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_attn_mask_bool_4d]
 status = "pass"
@@ -626,9 +602,7 @@ tracking = "#314"
 status = "pass"
 
 [test_attention_4d_diff_heads_sizes_attn_mask]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_diff_heads_sizes_attn_mask_expanded]
 status = "skip-codegen"
@@ -667,9 +641,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_4d_diff_heads_with_past_and_present]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_diff_heads_with_past_and_present_expanded]
 status = "skip-codegen"
@@ -677,9 +649,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_4d_diff_heads_with_past_and_present_mask3d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_diff_heads_with_past_and_present_mask3d_expanded]
 status = "skip-codegen"
@@ -792,9 +762,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_4d_with_past_and_present]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_with_past_and_present_expanded]
 status = "skip-codegen"
@@ -4278,29 +4246,19 @@ status = "pass"
 status = "pass"
 
 [test_or_bcast3v1d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_or_bcast3v2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_or_bcast4v2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_or_bcast4v3d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_or_bcast4v4d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_pow]
 status = "pass"
