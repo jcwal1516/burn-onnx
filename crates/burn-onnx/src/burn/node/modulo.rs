@@ -59,11 +59,25 @@ impl NodeCodegen for onnx_ir::modulo::ModNode {
                     let #output = #lhs.#mod_op(#rhs);
                 }
             }
-            (ArgType::ScalarNative(_), ArgType::ScalarNative(_)) => {
+            (ArgType::ScalarNative(lhs_dtype), ArgType::ScalarNative(_)) => {
                 let lhs = arg_to_ident(lhs_arg);
                 let rhs = arg_to_ident(rhs_arg);
+                // ONNX Mod with fmod=0 (default) is Python-style: the result
+                // has the sign of the divisor. Rust's `%` is C-style: the
+                // result has the sign of the dividend. They coincide on
+                // non-negative integers and on floats, but diverge on signed
+                // integers with a negative operand. Use `rem_euclid` for the
+                // signed-integer fmod=0 case to get Python semantics. For
+                // floats and for fmod=1 (C-style fmod), `%` is already
+                // correct. Unsigned ints can never produce a negative result
+                // so `%` is also correct there.
+                let expr = if !self.config.fmod && lhs_dtype.is_int() {
+                    quote! { #lhs.rem_euclid(#rhs) }
+                } else {
+                    quote! { #lhs % #rhs }
+                };
                 quote! {
-                    let #output = #lhs % #rhs;
+                    let #output = #expr;
                 }
             }
             (ArgType::ScalarNative(dtype), rhs_ty) if rhs_ty.is_on_device() => {
@@ -445,6 +459,75 @@ mod tests {
                 }
                 __lhs.expand(__shape).remainder(__rhs.expand(__shape))
             };
+            output
+        }
+        ");
+    }
+
+    // --- ScalarNative + ScalarNative ---
+
+    #[test]
+    fn test_remainder_scalar_native_scalar_native_signed_int() {
+        // ONNX Mod fmod=0 on signed ints is Python-style: sign follows
+        // divisor. Rust's `%` is C-style (sign follows dividend), so we
+        // must lower to `rem_euclid` to match ONNX semantics on negative
+        // inputs. Without this fix, Mod(-7, 3) would emit `a % b`, which
+        // evaluates to -1 in Rust versus ONNX's 2.
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_scalar("a", DType::I64)
+            .input_scalar("b", DType::I64)
+            .output_scalar("output", DType::I64)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, a: i64, b: i64) -> i64 {
+            let output = a.rem_euclid(b);
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_fmod_scalar_native_scalar_native_signed_int() {
+        // fmod=1 is C-style (sign follows dividend), which matches Rust's
+        // `%` directly. No `rem_euclid` call.
+        let config = ModConfig::new(true);
+        let node = ModNodeBuilder::new("mod1")
+            .input_scalar("a", DType::I64)
+            .input_scalar("b", DType::I64)
+            .output_scalar("output", DType::I64)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, a: i64, b: i64) -> i64 {
+            let output = a % b;
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_remainder_scalar_native_scalar_native_float() {
+        // ONNX Mod with `fmod=0` on float operands is out of spec: the
+        // ONNX Mod op requires `fmod=1` whenever the operands are
+        // floating-point, so a well-formed graph never reaches this
+        // branch with floats and `fmod=0`. We keep Rust's `%` here
+        // because it matches C-style fmod (which is what `fmod=1` asks
+        // for) and because the signed-int-only `rem_euclid` guard
+        // naturally skips floats. This test just pins that the emitted
+        // code is a plain `%` so any future refactor that conflates the
+        // float and signed-int arms shows up as a snapshot diff.
+        let config = ModConfig::new(false);
+        let node = ModNodeBuilder::new("mod1")
+            .input_scalar("a", DType::F32)
+            .input_scalar("b", DType::F32)
+            .output_scalar("output", DType::F32)
+            .config(config)
+            .build();
+        assert_snapshot!(codegen_forward_default(&node), @r"
+        pub fn forward(&self, a: f32, b: f32) -> f32 {
+            let output = a % b;
             output
         }
         ");

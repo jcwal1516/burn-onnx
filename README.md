@@ -63,10 +63,10 @@ pub mod my_model {
 Then use the model:
 
 ```rust
-use burn::backend::NdArray;
+use burn::backend::Flex;
 use crate::model::my_model::Model;
 
-let model: Model<NdArray<f32>> = Model::default();
+let model: Model<Flex> = Model::default();
 let output = model.forward(input_tensor);
 ```
 

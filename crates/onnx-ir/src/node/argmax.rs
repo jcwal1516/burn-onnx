@@ -72,10 +72,10 @@ impl NodeProcessor for ArgMaxProcessor {
             }
         };
 
-        // Get config values before mutating node
-        let config = self
-            .extract_config(node, opset)
-            .expect("Config extraction failed");
+        // Get config values before mutating node. Propagate the error so
+        // invalid attributes (e.g., select_last_index out of range) surface
+        // as a clean ProcessError rather than an `.expect` panic.
+        let config = self.extract_config(node, opset)?;
         let keepdims = config.keepdims;
 
         // For burn compatibility, argmax always outputs a tensor
@@ -160,6 +160,16 @@ impl NodeProcessor for ArgMaxProcessor {
     }
 
     fn build_node(&self, builder: RawNode, opset: usize) -> Node {
+        // `build_node` runs after `infer_types`, which already calls
+        // `extract_config` and propagates errors via `?`. Any config that
+        // reaches here has therefore already been validated, so the
+        // `.expect` is only reachable if a processor is constructed
+        // out-of-pipeline or if a future validation is added to
+        // `extract_config` without being mirrored in `infer_types`. The
+        // trait signature `fn build_node(...) -> Node` can't return
+        // `Result`, so this is the least bad option; lifting the trait
+        // to `Result<Node, ProcessError>` would require a codebase-wide
+        // refactor across every processor.
         let config = self
             .extract_config(&builder, opset)
             .expect("Config extraction failed");

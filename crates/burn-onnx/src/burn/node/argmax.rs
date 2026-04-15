@@ -46,8 +46,8 @@ impl NodeCodegen for onnx_ir::node::argmax::ArgMaxNode {
             quote! { #input.argmax(#axis) }
         };
 
-        // argmax uses the backend's default int element type (I32 on GPU, I64 on NdArray).
-        // Cast to the ONNX-specified dtype to avoid DTypeMismatch on GPU backends.
+        // argmax uses the backend's default int element type, which varies across backends.
+        // Cast to the ONNX-specified dtype to avoid DTypeMismatch on backends whose default differs.
         match &output_arg.ty {
             onnx_ir::ir::ArgType::Tensor(tensor) => {
                 let output_dtype = tensor.dtype.to_tokens();
