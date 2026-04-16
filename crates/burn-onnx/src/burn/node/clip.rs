@@ -35,18 +35,11 @@ impl ClipBoundCast {
     }
 }
 
-/// Build a token stream that evaluates to a native scalar bound at runtime
-/// for a single Clip `min`/`max` input.
-///
-/// Static bounds are inlined as literals. Runtime bounds come from one of
-/// the node's inputs, which is either a native scalar (use directly) or a
-/// scalar tensor (extract via `into_scalar().elem()`). The scalar is then
-/// coerced via an `as` cast to the native type selected by `bound_cast`,
-/// which mirrors the element type of the tensor being clipped. The caller
-/// computes `bound_cast` once from the input tensor's dtype so the min
-/// and max bounds agree, and so the cast is always wide enough to
-/// represent every value in the input's dtype (u64 inputs in particular
-/// need `u64`, since `i64` would wrap at i64::MAX).
+/// Token stream for a single Clip `min`/`max` bound. Static bounds are
+/// inlined as literals; runtime bounds are extracted from the input
+/// (native scalar or `ScalarTensor`) and `as`-cast to `bound_cast` — see
+/// `ClipBoundCast` for why the cast width is chosen up front from the
+/// data tensor's dtype.
 fn clip_bound_expr(
     bound: &Option<onnx_ir::node::clip::ClipInput>,
     inputs: &[Argument],
@@ -99,9 +92,6 @@ impl NodeCodegen for onnx_ir::clip::ClipNode {
         let input_dtype = self.inputs.first().unwrap().ty.elem_type();
         let bound_cast = ClipBoundCast::from_dtype(input_dtype);
 
-        // Extract bound expressions first so the `match (min_expr, max_expr)`
-        // below is a straight token-stream assembly rather than a nested
-        // branch on the enum structure.
         let min_expr = clip_bound_expr(&self.config.min, &self.inputs, scope, bound_cast);
         let max_expr = clip_bound_expr(&self.config.max, &self.inputs, scope, bound_cast);
         let input = scope.arg(self.inputs.first().unwrap());
@@ -126,7 +116,10 @@ impl NodeCodegen for onnx_ir::clip::ClipNode {
                     #input.clamp_max(__clip_max)
                 };
             },
-            (None, None) => panic!("Clip node must have at least one min or max value"),
+            // Both bounds absent -> identity clip per ONNX spec.
+            (None, None) => quote! {
+                let #output = #input;
+            },
         }
     }
 }
@@ -163,6 +156,21 @@ mod tests {
                 let __clip_max = 1f64;
                 input.clamp(__clip_min, __clip_max)
             };
+            output
+        }
+        ");
+    }
+
+    #[test]
+    fn test_clip_identity_no_bounds() {
+        // Neither min nor max: ONNX Clip is identity. Verify codegen
+        // does not reintroduce the earlier panic and emits a
+        // pass-through binding so the output name is still defined.
+        let node = create_clip_node("clip1", None, None);
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(&self, input: Tensor<B, 2>) -> Tensor<B, 2> {
+            let output = input;
             output
         }
         ");

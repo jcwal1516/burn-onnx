@@ -28,8 +28,8 @@ impl NodeCodegen for onnx_ir::gathernd::GatherNDNode {
                 };
                 let select_expr = quote! {
                     data_flat.select(0, Tensor::<B, 1, Int>::from_data(
-                        burn::tensor::TensorData::from([offset as i32].as_slice()),
-                        &self.device,
+                        burn::tensor::TensorData::from([offset as i64].as_slice()),
+                        (&self.device, burn::tensor::DType::I64),
                     ))
                 };
                 on_device_to_native(select_expr, dtype)
@@ -37,8 +37,8 @@ impl NodeCodegen for onnx_ir::gathernd::GatherNDNode {
                 // ScalarTensor: keep as Tensor<B, 1> on device
                 quote! {
                     data_flat.select(0, Tensor::<B, 1, Int>::from_data(
-                        burn::tensor::TensorData::from([offset as i32].as_slice()),
-                        &self.device,
+                        burn::tensor::TensorData::from([offset as i64].as_slice()),
+                        (&self.device, burn::tensor::DType::I64),
                     ))
                 }
             };
@@ -106,8 +106,10 @@ impl NodeCodegen for onnx_ir::gathernd::GatherNDNode {
                     let output_size = total_slices * slice_size;
 
                     // Compute flat indices for all output elements on CPU,
-                    // then do a single select() on the GPU
-                    let mut flat_indices: alloc::vec::Vec<i32> = alloc::vec::Vec::with_capacity(output_size);
+                    // then do a single select() on the GPU. Indices are i64 to
+                    // avoid truncation on tensors with > 2^31 total elements
+                    // (large embedding tables, high-res feature maps).
+                    let mut flat_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::with_capacity(output_size);
                     for bi in 0..batch_count {
                         for li in 0..lookups_per_batch {
                             let lookup_idx = bi * lookups_per_batch + li;
@@ -118,7 +120,7 @@ impl NodeCodegen for onnx_ir::gathernd::GatherNDNode {
                                 offset += idx as usize * data_strides[b + j];
                             }
                             for s in 0..slice_size {
-                                flat_indices.push((offset + s) as i32);
+                                flat_indices.push((offset + s) as i64);
                             }
                         }
                     }
@@ -126,7 +128,7 @@ impl NodeCodegen for onnx_ir::gathernd::GatherNDNode {
                     let data_flat = #data.reshape([total_data_size]);
                     let indices_tensor = Tensor::<B, 1, Int>::from_data(
                         burn::tensor::TensorData::from(flat_indices.as_slice()),
-                        &self.device,
+                        (&self.device, burn::tensor::DType::I64),
                     );
                     let output_flat = data_flat.select(0, indices_tensor);
 
@@ -202,7 +204,7 @@ mod tests {
                 };
                 let total_slices = batch_count * lookups_per_batch;
                 let output_size = total_slices * slice_size;
-                let mut flat_indices: alloc::vec::Vec<i32> = alloc::vec::Vec::with_capacity(
+                let mut flat_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::with_capacity(
                     output_size,
                 );
                 for bi in 0..batch_count {
@@ -217,7 +219,7 @@ mod tests {
                             offset += idx as usize * data_strides[b + j];
                         }
                         for s in 0..slice_size {
-                            flat_indices.push((offset + s) as i32);
+                            flat_indices.push((offset + s) as i64);
                         }
                     }
                 }
@@ -228,7 +230,7 @@ mod tests {
                     Int,
                 >::from_data(
                     burn::tensor::TensorData::from(flat_indices.as_slice()),
-                    &self.device,
+                    (&self.device, burn::tensor::DType::I64),
                 );
                 let output_flat = data_flat.select(0, indices_tensor);
                 let mut output_shape = [0usize; 1];
@@ -294,7 +296,7 @@ mod tests {
                 };
                 let total_slices = batch_count * lookups_per_batch;
                 let output_size = total_slices * slice_size;
-                let mut flat_indices: alloc::vec::Vec<i32> = alloc::vec::Vec::with_capacity(
+                let mut flat_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::with_capacity(
                     output_size,
                 );
                 for bi in 0..batch_count {
@@ -309,7 +311,7 @@ mod tests {
                             offset += idx as usize * data_strides[b + j];
                         }
                         for s in 0..slice_size {
-                            flat_indices.push((offset + s) as i32);
+                            flat_indices.push((offset + s) as i64);
                         }
                     }
                 }
@@ -320,7 +322,7 @@ mod tests {
                     Int,
                 >::from_data(
                     burn::tensor::TensorData::from(flat_indices.as_slice()),
-                    &self.device,
+                    (&self.device, burn::tensor::DType::I64),
                 );
                 let output_flat = data_flat.select(0, indices_tensor);
                 let mut output_shape = [0usize; 2];
@@ -386,7 +388,7 @@ mod tests {
                 };
                 let total_slices = batch_count * lookups_per_batch;
                 let output_size = total_slices * slice_size;
-                let mut flat_indices: alloc::vec::Vec<i32> = alloc::vec::Vec::with_capacity(
+                let mut flat_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::with_capacity(
                     output_size,
                 );
                 for bi in 0..batch_count {
@@ -401,7 +403,7 @@ mod tests {
                             offset += idx as usize * data_strides[b + j];
                         }
                         for s in 0..slice_size {
-                            flat_indices.push((offset + s) as i32);
+                            flat_indices.push((offset + s) as i64);
                         }
                     }
                 }
@@ -412,7 +414,7 @@ mod tests {
                     Int,
                 >::from_data(
                     burn::tensor::TensorData::from(flat_indices.as_slice()),
-                    &self.device,
+                    (&self.device, burn::tensor::DType::I64),
                 );
                 let output_flat = data_flat.select(0, indices_tensor);
                 let mut output_shape = [0usize; 2];
@@ -482,7 +484,7 @@ mod tests {
                 };
                 let total_slices = batch_count * lookups_per_batch;
                 let output_size = total_slices * slice_size;
-                let mut flat_indices: alloc::vec::Vec<i32> = alloc::vec::Vec::with_capacity(
+                let mut flat_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::with_capacity(
                     output_size,
                 );
                 for bi in 0..batch_count {
@@ -497,7 +499,7 @@ mod tests {
                             offset += idx as usize * data_strides[b + j];
                         }
                         for s in 0..slice_size {
-                            flat_indices.push((offset + s) as i32);
+                            flat_indices.push((offset + s) as i64);
                         }
                     }
                 }
@@ -508,7 +510,7 @@ mod tests {
                     Int,
                 >::from_data(
                     burn::tensor::TensorData::from(flat_indices.as_slice()),
-                    &self.device,
+                    (&self.device, burn::tensor::DType::I64),
                 );
                 let output_flat = data_flat.select(0, indices_tensor);
                 let mut output_shape = [0usize; 1];
@@ -574,8 +576,8 @@ mod tests {
                             1,
                             Int,
                         >::from_data(
-                            burn::tensor::TensorData::from([offset as i32].as_slice()),
-                            &self.device,
+                            burn::tensor::TensorData::from([offset as i64].as_slice()),
+                            (&self.device, burn::tensor::DType::I64),
                         ),
                     )
                     .into_scalar()
@@ -628,7 +630,7 @@ mod tests {
                 };
                 let total_slices = batch_count * lookups_per_batch;
                 let output_size = total_slices * slice_size;
-                let mut flat_indices: alloc::vec::Vec<i32> = alloc::vec::Vec::with_capacity(
+                let mut flat_indices: alloc::vec::Vec<i64> = alloc::vec::Vec::with_capacity(
                     output_size,
                 );
                 for bi in 0..batch_count {
@@ -643,7 +645,7 @@ mod tests {
                             offset += idx as usize * data_strides[b + j];
                         }
                         for s in 0..slice_size {
-                            flat_indices.push((offset + s) as i32);
+                            flat_indices.push((offset + s) as i64);
                         }
                     }
                 }
@@ -654,7 +656,7 @@ mod tests {
                     Int,
                 >::from_data(
                     burn::tensor::TensorData::from(flat_indices.as_slice()),
-                    &self.device,
+                    (&self.device, burn::tensor::DType::I64),
                 );
                 let output_flat = data_flat.select(0, indices_tensor);
                 let mut output_shape = [0usize; 2];

@@ -327,13 +327,11 @@ impl NodeProcessor for ResizeProcessor {
     ) -> Result<(), ProcessError> {
         for (key, value) in node.attrs.iter() {
             match key.as_str() {
-                "antialias" => {
-                    if value.clone().into_i32() != 0 {
-                        return Err(ProcessError::InvalidAttribute {
-                            name: "antialias".to_string(),
-                            reason: "antialias other than 0 is not supported".to_string(),
-                        });
-                    }
+                "antialias" if value.clone().into_i32() != 0 => {
+                    return Err(ProcessError::InvalidAttribute {
+                        name: "antialias".to_string(),
+                        reason: "antialias other than 0 is not supported".to_string(),
+                    });
                 }
                 "axes" => {
                     return Err(ProcessError::InvalidAttribute {
@@ -344,32 +342,26 @@ impl NodeProcessor for ResizeProcessor {
                 "coordinate_transformation_mode" | "cubic_coeff_a" => {
                     // Parsed in extract_config
                 }
-                "exclude_outside" => {
-                    if value.clone().into_i32() != 0 {
-                        return Err(ProcessError::InvalidAttribute {
-                            name: "exclude_outside".to_string(),
-                            reason: "exclude_outside other than 0 is not supported".to_string(),
-                        });
-                    }
+                "exclude_outside" if value.clone().into_i32() != 0 => {
+                    return Err(ProcessError::InvalidAttribute {
+                        name: "exclude_outside".to_string(),
+                        reason: "exclude_outside other than 0 is not supported".to_string(),
+                    });
                 }
-                "extrapolation_value" => {
-                    if value.clone().into_f32() != 0.0 {
-                        return Err(ProcessError::InvalidAttribute {
-                            name: "extrapolation_value".to_string(),
-                            reason: "extrapolation_value other than 0.0 is not supported"
-                                .to_string(),
-                        });
-                    }
+                "extrapolation_value" if value.clone().into_f32() != 0.0 => {
+                    return Err(ProcessError::InvalidAttribute {
+                        name: "extrapolation_value".to_string(),
+                        reason: "extrapolation_value other than 0.0 is not supported".to_string(),
+                    });
                 }
-                "keep_aspect_ratio_policy" => {
-                    if value.clone().into_string().to_lowercase() != "stretch" {
-                        return Err(ProcessError::InvalidAttribute {
-                            name: "keep_aspect_ratio_policy".to_string(),
-                            reason:
-                                "keep_aspect_ratio_policy other than 'stretch' is not supported"
-                                    .to_string(),
-                        });
-                    }
+                "keep_aspect_ratio_policy"
+                    if value.clone().into_string().to_lowercase() != "stretch" =>
+                {
+                    return Err(ProcessError::InvalidAttribute {
+                        name: "keep_aspect_ratio_policy".to_string(),
+                        reason: "keep_aspect_ratio_policy other than 'stretch' is not supported"
+                            .to_string(),
+                    });
                 }
                 "mode" | "nearest_mode" => {
                     // Parsed in extract_config

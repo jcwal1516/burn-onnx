@@ -161,31 +161,71 @@ fn generate_tensor_slice(
                 let end_data_var = quote! { end_data };
                 let end_vec_var = quote! { end_vec };
 
-                // Check if axes are provided (from onnx-ir with ONNX spec defaults)
-                if let Some(onnx_ir::slice::SliceInput::Static(ref axes)) = node.config.axes {
-                    // Build ranges respecting the axes
-                    let mut ranges = vec![quote! { .. }; rank];
-                    for (idx, &axis) in axes.iter().enumerate() {
-                        let axis_idx = axis as usize;
-                        if axis_idx < rank {
-                            let vec_idx = proc_macro2::Literal::usize_unsuffixed(idx);
-                            ranges[axis_idx] = quote! {
-                                #start_vec_var[#vec_idx] as usize..#end_vec_var[#vec_idx] as usize
-                            };
-                        }
+                // ONNX default: axes = 0..len(starts). onnx-ir applies this
+                // at extract_config time whenever the starts length is known
+                // (static values, or a tensor with a known first-dim
+                // static_shape). If we still don't have static axes, fall
+                // back to the input rank AND emit a runtime length assertion
+                // so a len(starts) != rank mismatch (rare but not
+                // impossible) surfaces as a clear panic rather than a
+                // silent out-of-range index.
+                let (axes_vec, expected_len): (Vec<i64>, Option<usize>) = match &node.config.axes {
+                    Some(onnx_ir::slice::SliceInput::Static(axes)) => {
+                        (axes.clone(), Some(axes.len()))
                     }
-
-                    return quote! {
-                        let #start_data_var = #start_name.to_data();
-                        let #start_vec_var: alloc::vec::Vec<i64> = #start_data_var.iter::<i64>().collect();
-                        let #end_data_var = #end_name.to_data();
-                        let #end_vec_var: alloc::vec::Vec<i64> = #end_data_var.iter::<i64>().collect();
-                        let #output = #input.slice(s![#(#ranges),*]);
-                    };
-                } else {
-                    // No axes - slice all dimensions (ONNX spec default would have provided axes)
-                    panic!("Axes must be provided by onnx-ir for tensor slice");
+                    _ => {
+                        let n_static = match &start_arg.ty {
+                            ArgType::Tensor(t) => t
+                                .static_shape
+                                .as_ref()
+                                .and_then(|s| s.first().copied().flatten()),
+                            _ => None,
+                        };
+                        let n = n_static.unwrap_or(rank);
+                        // Only enforce a runtime length check when the
+                        // fallback to `rank` was used — if the Static
+                        // length was known we already trust it.
+                        (
+                            (0..n as i64).collect(),
+                            if n_static.is_none() { Some(n) } else { None },
+                        )
+                    }
+                };
+                // Build ranges respecting the axes
+                let mut ranges = vec![quote! { .. }; rank];
+                for (idx, &axis) in axes_vec.iter().enumerate() {
+                    let axis_idx = axis as usize;
+                    if axis_idx < rank {
+                        let vec_idx = proc_macro2::Literal::usize_unsuffixed(idx);
+                        ranges[axis_idx] = quote! {
+                            #start_vec_var[#vec_idx] as usize..#end_vec_var[#vec_idx] as usize
+                        };
+                    }
                 }
+                let len_assertion = if let Some(n) = expected_len {
+                    let n_lit = proc_macro2::Literal::usize_unsuffixed(n);
+                    quote! {
+                        assert!(
+                            #start_vec_var.len() == #n_lit && #end_vec_var.len() == #n_lit,
+                            "Slice: runtime starts/ends length ({}, {}) does not match \
+                             the codegen-assumed default axes length ({}); the ONNX model \
+                             either needs an explicit axes input or the starts tensor needs \
+                             a static_shape so onnx-ir can derive axes at IR time",
+                            #start_vec_var.len(), #end_vec_var.len(), #n_lit
+                        );
+                    }
+                } else {
+                    quote! {}
+                };
+
+                return quote! {
+                    let #start_data_var = #start_name.to_data();
+                    let #start_vec_var: alloc::vec::Vec<i64> = #start_data_var.iter::<i64>().collect();
+                    let #end_data_var = #end_name.to_data();
+                    let #end_vec_var: alloc::vec::Vec<i64> = #end_data_var.iter::<i64>().collect();
+                    #len_assertion
+                    let #output = #input.slice(s![#(#ranges),*]);
+                };
             } else if matches!(
                 (&start_arg.ty, &end_arg.ty),
                 (
@@ -964,6 +1004,54 @@ mod tests {
         pub fn forward(&self, tensor: Tensor<B, 2>, begin: [i64; 1]) -> Tensor<B, 2> {
             let chunk = tensor.slice(s![begin[0]..10, ..]);
             chunk
+        }
+        ");
+    }
+
+    #[test]
+    fn test_slice_runtime_tensor_default_axes() {
+        // Both starts/ends arrive as runtime 1-D tensors and no axes
+        // input is provided. starts has a static_shape of [2], so the
+        // codegen should default axes to [0, 1] (not the input rank 3).
+        let config = SliceConfig {
+            starts: SliceInput::Runtime(RuntimeInputRef {
+                name: "starts".to_string(),
+                input_index: 1,
+            }),
+            ends: SliceInput::Runtime(RuntimeInputRef {
+                name: "ends".to_string(),
+                input_index: 2,
+            }),
+            axes: None,
+            steps: None,
+        };
+        let node = SliceNodeBuilder::new("slice1")
+            .input_tensor("x", 3, DType::F32)
+            .input_tensor_shape("starts", vec![2], DType::I64)
+            .input_tensor_shape("ends", vec![2], DType::I64)
+            .output_tensor("y", 3, DType::F32)
+            .config(config)
+            .build();
+        let code = codegen_forward_default(&node);
+        assert_snapshot!(code, @r"
+        pub fn forward(
+            &self,
+            x: Tensor<B, 3>,
+            starts: Tensor<B, 1, Int>,
+            ends: Tensor<B, 1, Int>,
+        ) -> Tensor<B, 3> {
+            let start_data = starts.to_data();
+            let start_vec: alloc::vec::Vec<i64> = start_data.iter::<i64>().collect();
+            let end_data = ends.to_data();
+            let end_vec: alloc::vec::Vec<i64> = end_data.iter::<i64>().collect();
+            let y = x
+                .slice(
+                    s![
+                        start_vec[0] as usize..end_vec[0] as usize, start_vec[1] as usize
+                        ..end_vec[1] as usize, ..
+                    ],
+                );
+            y
         }
         ");
     }
