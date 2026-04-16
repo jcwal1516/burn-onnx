@@ -606,7 +606,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Test needs redesign - runtime reshape requires rank information from output or Shape type input
     fn test_reshape_config_runtime() {
         let node = create_runtime_reshape_node().process(ReshapeProcessor, 16);
 

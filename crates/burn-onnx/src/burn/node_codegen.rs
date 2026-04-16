@@ -215,6 +215,7 @@ impl_node_codegen_dispatch! {
     MatMulInteger,
     DequantizeLinear,
     QuantizeLinear,
+    QLinearMatMul,
 
     // Constant ops
     Constant,
@@ -246,6 +247,9 @@ impl_node_codegen_dispatch! {
     // Test ops
     IsInf,
     IsNaN,
+
+     // ML ops
+    Imputer,
 
     // Special ops
     Attention,

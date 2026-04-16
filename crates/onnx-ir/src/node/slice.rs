@@ -339,29 +339,47 @@ impl NodeProcessor for SliceProcessor {
         let axes = get_slice_input(node, 3)?;
         let steps = get_slice_input(node, 4)?;
 
-        // Apply ONNX spec defaults for optional parameters
-        // Only apply defaults for static slicing where we can determine the length
-        let (mut axes, steps) = if let SliceInput::Static(ref starts_vec) = starts {
-            let num_slices = starts_vec.len();
+        // Apply ONNX spec defaults for optional parameters.
+        //
+        // The number of slices is `len(starts)`. We determine it at IR time
+        // either from a static starts vector (opset < 10 attributes, or a
+        // constant tensor input) or from the starts argument's static_shape
+        // (a 1-D tensor whose first dim is known). If neither is available
+        // and `axes` is absent, we cannot fabricate a correct default, so
+        // the codegen must not guess — returning None here forces the
+        // downstream consumer to either supply axes or refuse the model.
+        let num_slices: Option<usize> = match &starts {
+            SliceInput::Static(v) => Some(v.len()),
+            SliceInput::Runtime(r) => match &node.inputs[r.input_index].ty {
+                ArgType::Tensor(t) => t
+                    .static_shape
+                    .as_ref()
+                    .and_then(|s| s.first().copied().flatten()),
+                ArgType::Shape(n) => Some(*n),
+                _ => None,
+            },
+        };
 
+        let (mut axes, steps) = if let Some(n) = num_slices.filter(|n| *n > 0) {
             // If steps not provided, default to all 1s (ONNX spec)
-            let steps = if steps.is_none() && num_slices > 0 {
-                Some(SliceInput::Static(vec![1; num_slices]))
+            let steps = if steps.is_none() {
+                Some(SliceInput::Static(vec![1; n]))
             } else {
                 steps
             };
 
-            // If axes not provided, default to [0, 1, ..., num_slices-1] (ONNX spec)
-            let axes = if axes.is_none() && num_slices > 0 {
-                Some(SliceInput::Static((0..num_slices as i64).collect()))
+            // If axes not provided, default to [0, 1, ..., n-1] (ONNX spec)
+            let axes = if axes.is_none() {
+                Some(SliceInput::Static((0..n as i64).collect()))
             } else {
                 axes
             };
 
             (axes, steps)
         } else {
-            // For runtime inputs, we can't provide defaults here
-            // They would need to be handled at runtime
+            // Length unknown: propagate as-is. If axes is None here, the
+            // codegen will reject at emission rather than silently slicing
+            // the wrong number of dimensions.
             (axes, steps)
         };
 

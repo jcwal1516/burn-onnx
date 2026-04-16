@@ -26,6 +26,13 @@
 
 #![allow(clippy::approx_constant)]
 
+// Some generated model files use `alloc::vec::Vec` in runtime codegen
+// (gathernd, slice with runtime tensor indices, tile with runtime
+// repeats). Pull the alloc crate into scope so those paths resolve
+// when the test binary links the generated modules. onnx-tests does
+// the same in its own test_mod.rs.
+extern crate alloc;
+
 mod backend;
 
 use std::path::PathBuf;
@@ -166,6 +173,97 @@ fn verify_expectations_match_tests() {
     assert!(
         intersection.is_empty(),
         "test(s) appear in both HARNESS_TESTS and CODEGEN_ONLY_TESTS: {intersection:?}"
+    );
+
+    // ---- Cross-check 4: every FailCompare row shows up in the fail-compare manifest ----
+    //
+    // Mirrors cross-check 2 for the drift-check manifests. A FailCompare
+    // entry missing from both FAIL_COMPARE_RUNNERS and
+    // FAIL_COMPARE_CODEGEN_ONLY means build.rs silently dropped it,
+    // which would defeat the drift check's purpose.
+    let fc_runners: std::collections::BTreeSet<&str> =
+        FAIL_COMPARE_RUNNERS.iter().map(|(n, _)| *n).collect();
+    let fc_codegen_only: std::collections::BTreeSet<&str> =
+        FAIL_COMPARE_CODEGEN_ONLY.iter().copied().collect();
+    let fc_union: std::collections::BTreeSet<&str> =
+        fc_runners.union(&fc_codegen_only).copied().collect();
+    let declared_fail_compare: std::collections::BTreeSet<&str> = expectations
+        .entries
+        .iter()
+        .filter(|(_, entry)| entry.status == Status::FailCompare)
+        .map(|(k, _)| k.as_str())
+        .collect();
+    let fc_not_in_manifest: Vec<&&str> = declared_fail_compare.difference(&fc_union).collect();
+    let fc_manifest_not_in_decl: Vec<&&str> = fc_union.difference(&declared_fail_compare).collect();
+    assert!(
+        fc_not_in_manifest.is_empty() && fc_manifest_not_in_decl.is_empty(),
+        "fail-compare list and build.rs manifest have drifted.\n  \
+         FailCompare in expectations.toml but missing from manifest: {fc_not_in_manifest:?}\n  \
+         In fail-compare manifest but not marked FailCompare:         {fc_manifest_not_in_decl:?}"
+    );
+    let fc_intersection: Vec<_> = fc_runners.intersection(&fc_codegen_only).collect();
+    assert!(
+        fc_intersection.is_empty(),
+        "test(s) appear in both FAIL_COMPARE_RUNNERS and FAIL_COMPARE_CODEGEN_ONLY: {fc_intersection:?}"
+    );
+}
+
+/// Drift check: every `status = "fail-compare"` entry must still fail
+/// when run against the reference output. If a runner returns `false`
+/// (comparison succeeded), the underlying bug has been fixed — usually
+/// via an upstream burn rev bump — and the reviewer needs to flip the
+/// row to `status = "pass"` so it joins the regular harness.
+///
+/// Without this check, fail-compare entries stay in limbo indefinitely:
+/// the build.rs pass-list filter excludes them from the harness, so
+/// they produce zero signal when upstream is fixed.
+///
+/// Only entries that successfully introspected end up in
+/// `FAIL_COMPARE_RUNNERS`; the rest are in `FAIL_COMPARE_CODEGEN_ONLY`
+/// and can't be runtime-checked here (dynamic shape, rank-0 I/O, etc.).
+#[test]
+fn verify_fail_compare_still_fails() {
+    let now_passing = collect_now_passing(FAIL_COMPARE_RUNNERS);
+    assert!(
+        now_passing.is_empty(),
+        "fail-compare entries that now pass; flip their status to \"pass\" in expectations.toml:\n  {now_passing:#?}"
+    );
+}
+
+/// Walk a runner table and return the names whose runner reports
+/// `false` (comparison now passes, i.e. the upstream fix has landed).
+/// Factored out of `verify_fail_compare_still_fails` so the drift
+/// polarity itself can be unit-tested — see `drift_gate_polarity`.
+fn collect_now_passing<'a>(runners: &'a [(&'a str, fn() -> bool)]) -> Vec<&'a str> {
+    runners
+        .iter()
+        .filter_map(|(name, runner)| if !runner() { Some(*name) } else { None })
+        .collect()
+}
+
+/// Drift-gate self-test: `collect_now_passing` must identify runners
+/// that report `false` and ignore those that report `true`. Without
+/// this check, a future refactor that inverts the boolean (e.g.,
+/// swapping the `result.is_err()` in the generated FailCompare body)
+/// would silently green the gate forever. Mirrors
+/// `negative_gate_actually_gates` for the comparison machinery.
+#[test]
+fn drift_gate_polarity() {
+    fn still_failing() -> bool {
+        true
+    }
+    fn now_passing() -> bool {
+        false
+    }
+    let table: &[(&str, fn() -> bool)] = &[
+        ("still_failing_entry", still_failing),
+        ("now_passing_entry", now_passing),
+    ];
+    let flagged = collect_now_passing(table);
+    assert_eq!(
+        flagged,
+        vec!["now_passing_entry"],
+        "drift gate should flag only the runner that returns false"
     );
 }
 

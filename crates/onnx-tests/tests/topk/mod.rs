@@ -16,7 +16,6 @@ mod tests {
     use crate::backend::TestBackend;
 
     #[test]
-    #[ignore = "burn-tensor topk_with_indices uses backend-default int indices that fail burn-flex int_select I64 contract - tracel-ai/burn#4776"]
     fn topk() {
         let device = Default::default();
         let model = topk::Model::<TestBackend>::new(&device);
@@ -47,7 +46,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "burn-tensor topk_with_indices uses backend-default int indices that fail burn-flex int_select I64 contract - tracel-ai/burn#4776"]
     fn topk_axis0() {
         // axis=0, shape [5, 4], k=3
         let device = Default::default();
@@ -78,7 +76,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "burn-tensor topk_with_indices uses backend-default int indices that fail burn-flex int_select I64 contract - tracel-ai/burn#4776"]
     fn topk_1d() {
         // 1D tensor [8], axis=0, k=3
         let device = Default::default();
@@ -108,7 +105,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "burn-tensor topk_with_indices uses backend-default int indices that fail burn-flex int_select I64 contract - tracel-ai/burn#4776"]
     fn topk_3d() {
         // axis=1 on [2, 4, 3] tensor, k=2
         let device = Default::default();
@@ -152,7 +148,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "burn-tensor topk_with_indices uses backend-default int indices that fail burn-flex int_select I64 contract - tracel-ai/burn#4776"]
     fn topk_k_full() {
         // k = full dimension size (k=5 on axis=1, shape [3, 5])
         let device = Default::default();
@@ -188,7 +183,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "burn-tensor topk_with_indices uses backend-default int indices that fail burn-flex int_select I64 contract - tracel-ai/burn#4776"]
     fn topk_negative_axis() {
         // axis=-2 on [3, 4, 5] tensor, k=2 (resolves to axis=1)
         let device = Default::default();

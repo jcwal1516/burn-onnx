@@ -361,7 +361,6 @@ impl GraphState {
     /// in constant_map for fast lookup during lift_constants.
     pub(super) fn add_node(&mut self, mut node: RawNode) {
         let node_idx = self.processed_nodes.len();
-        let mut out_count = 1;
 
         // Get data_id for Constant nodes (from their Static input)
         let constant_data_id = if node.node_type == NodeType::Constant {
@@ -375,17 +374,15 @@ impl GraphState {
             None
         };
 
-        for output in node.outputs.iter_mut() {
+        for (out_idx, output) in node.outputs.iter_mut().enumerate() {
             self.node_output_map
-                .insert(output.name.clone(), (node_idx, out_count - 1));
-            output.name = format!("{}_out{}", node.name, out_count);
+                .insert(output.name.clone(), (node_idx, out_idx));
+            output.name = format!("{}_out{}", node.name, out_idx + 1);
 
             // Register constant output name → data_id for fast lookup
             if let Some(data_id) = constant_data_id {
                 Arc::make_mut(&mut self.constant_map).insert(output.name.clone(), data_id);
             }
-
-            out_count += 1;
         }
 
         self.processed_nodes.push(node);

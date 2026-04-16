@@ -93,6 +93,7 @@ functionality.
 | [If][77]                         | ✅             | ✅           |
 | [Im][78]                         | ❌             | ❌           |
 | [ImageDecoder][197]              | ❌             | ❌           |
+| [Imputer][205]                   | ✅             | ✅           |
 | [InstanceNormalization][79]      | ✅             | ✅           |
 | [IsInf][80]                      | ✅             | ✅           |
 | [IsNaN][81]                      | ✅             | ✅           |
@@ -138,7 +139,7 @@ functionality.
 | [Pow][121]                       | ✅             | ✅           |
 | [PRelu][122]                     | ✅             | ✅           |
 | [QLinearConv][123]               | ❌             | ❌           |
-| [QLinearMatMul][124]             | ❌             | ❌           |
+| [QLinearMatMul][124]             | ✅             | ✅           |
 | [QuantizeLinear][125]            | ✅             | ✅           |
 | [RMSNormalization][198]          | ❌             | ❌           |
 | [RNN][145]                       | ✅             | ✅           |
@@ -417,6 +418,7 @@ functionality.
 [202]: https://onnx.ai/onnx/operators/onnx__StringSplit.html "ONNX StringSplit"
 [203]: https://onnx.ai/onnx/operators/onnx__Swish.html "ONNX Swish"
 [204]: https://onnx.ai/onnx/operators/onnx__TensorScatter.html "ONNX TensorScatter"
+[205]: https://onnx.ai/onnx/operators/onnx_aionnxml_Imputer.html "ONNX Imputer"
 
 ## Pattern Coalescing
 

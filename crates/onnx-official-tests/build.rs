@@ -30,16 +30,21 @@
 //!
 //! # Pass-list discipline
 //!
-//! Only tests with `status = "pass"` in `expectations.toml` are fed to
-//! `ModelGen`. Any `skip-codegen` / `fail-compare` entry is read purely
-//! as documentation — the build script never attempts to codegen it and
-//! never emits a `#[test]` function for it. This is the "option (c)"
-//! trade-off from the M2 design discussion: a mislabeled pass entry
-//! that actually panics in codegen will fail the build with a path-
-//! qualified message pointing at the entry, and the contributor fixes
-//! the expectations row before re-running. The alternative (wrapping
-//! `ModelGen` in `catch_unwind`) adds noisy warnings that hide real
-//! regressions.
+//! Tests with `status = "pass"` are fed to a single batch `ModelGen`
+//! call. A mislabeled pass entry that actually panics in codegen
+//! fails the build with a path-qualified message pointing at the
+//! entry, and the contributor fixes the expectations row before
+//! re-running.
+//!
+//! Tests with `status = "fail-compare"` go through a separate
+//! per-file `ModelGen` wrapped in `catch_unwind`, so one codegen
+//! panic doesn't abort the drift check. Each introspectable
+//! fail-compare entry gets a `fn fail_compare_<name>() -> bool`
+//! runner driven from `verify_fail_compare_still_fails`.
+//!
+//! `skip-codegen`, `skip-compile`, and `flaky` entries are read as
+//! documentation only — the build script never attempts to codegen
+//! or run them.
 //!
 //! # Introspection
 //!
@@ -393,8 +398,9 @@ fn main() {
 
     let expectations = load_expectations(&expectations_path);
 
-    // Split the expectations into passes (codegen + harness) and
-    // non-passes (documentation only). Drift between vendor/ and
+    // Split the expectations into passes (codegen + #[test]) and
+    // fail-compare (codegen + drift-check runner, no #[test]). All
+    // other statuses are documentation only. Drift between vendor/ and
     // expectations.toml is caught by the runtime test, not the build.
     let mut pass_names: Vec<String> = expectations
         .iter()
@@ -403,13 +409,22 @@ fn main() {
         .collect();
     pass_names.sort();
 
-    // For each pass entry: stage, introspect, and collect metadata for
-    // harness emission. Tests that introspect cleanly go into the
-    // harness; everything else gets a cargo warning and is dropped from
-    // the harness (but still codegened so regressions surface).
+    let mut fail_compare_names: Vec<String> = expectations
+        .iter()
+        .filter(|(_, s)| s.as_str() == "fail-compare")
+        .map(|(k, _)| k.clone())
+        .collect();
+    fail_compare_names.sort();
+
+    // Shared ModelGen call: every codegenable test from either status
+    // goes through the same `run_from_script` invocation so they all
+    // land in `$OUT_DIR/model/<name>.rs`. Separate harnessable maps
+    // drive the two emit paths (#[test] vs fail-compare runner).
     let mut model_gen = ModelGen::new();
     let mut harnessable: BTreeMap<String, TestMeta> = BTreeMap::new();
     let mut codegen_only: Vec<String> = Vec::new();
+    let mut fail_compare_harnessable: BTreeMap<String, TestMeta> = BTreeMap::new();
+    let mut fail_compare_codegen_only: Vec<String> = Vec::new();
 
     for name in &pass_names {
         let src = vendor.join(name).join("model.onnx");
@@ -439,12 +454,84 @@ fn main() {
         }
     }
 
-    // Run ModelGen over every staged file. A panic here means a
-    // pass-listed test actually fails codegen — the fix is to update
-    // its entry in expectations.toml to `skip-codegen`, not to swallow
-    // the error. (See the `build.rs` module-level docs for the
-    // rationale behind this strict posture.)
+    // Run the pass-batch ModelGen first under the existing strict
+    // posture: any panic here is a real regression and must be fixed
+    // by reclassifying the offending entry (see module docs).
     model_gen.out_dir("model/").run_from_script();
+
+    // Fail-compare runs per-file under catch_unwind so one panic
+    // doesn't block the rest of the drift check. A panic here means
+    // the entry has regressed past "fail-compare" and should be
+    // downgraded to "skip-codegen"; we warn and keep going rather
+    // than aborting the build.
+    //
+    // Entries whose codegen panicked get tracked in
+    // `fail_compare_codegen_panic` separately from
+    // `fail_compare_codegen_only` because we don't want to try to
+    // `include!` a .rs file that was never written. Both sets merge
+    // into the FAIL_COMPARE_CODEGEN_ONLY manifest for the
+    // expectations cross-check.
+    let mut fail_compare_codegen_panic: Vec<String> = Vec::new();
+
+    for name in &fail_compare_names {
+        let src = vendor.join(name).join("model.onnx");
+        if !src.exists() {
+            println!(
+                "cargo:warning=expectations.toml lists `{name}` as fail-compare but \
+                 {} is missing; skipping from codegen",
+                src.display()
+            );
+            continue;
+        }
+
+        let dst = staged.join(format!("{name}.onnx"));
+        if let Err(e) = fs::copy(&src, &dst) {
+            // Fail-compare is a best-effort pipeline: a vendored-file
+            // I/O failure is on the same level as "codegen panicked" —
+            // warn and skip so one bad entry doesn't abort the batch.
+            println!("cargo:warning=failed to stage fail-compare entry `{name}` ({e}); skipping");
+            fail_compare_codegen_panic.push(name.clone());
+            continue;
+        }
+
+        let introspect_result = introspect(&src);
+        let dst_str = dst.to_str().expect("non-utf8 staged path").to_string();
+        let codegen_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut fc_gen = ModelGen::new();
+            fc_gen.input(&dst_str);
+            fc_gen.out_dir("model/").run_from_script();
+        }));
+
+        if let Err(payload) = codegen_result {
+            // `catch_unwind` hands back `Box<dyn Any + Send>`; ModelGen
+            // panics typically carry a `&'static str` or `String`.
+            // Surface it in the warning so a reviewer can triage without
+            // re-running locally.
+            let msg = payload
+                .downcast_ref::<&'static str>()
+                .map(|s| (*s).to_string())
+                .or_else(|| payload.downcast_ref::<String>().cloned())
+                .unwrap_or_else(|| "<opaque panic payload>".to_string());
+            println!(
+                "cargo:warning=fail-compare entry `{name}` now panics in codegen: {msg}; \
+                 consider downgrading to status = \"skip-codegen\""
+            );
+            fail_compare_codegen_panic.push(name.clone());
+            continue;
+        }
+
+        match introspect_result {
+            Ok(meta) => {
+                fail_compare_harnessable.insert(name.clone(), meta);
+            }
+            Err(reason) => {
+                println!(
+                    "cargo:warning=skipping fail-compare drift-runner emission for {name}: {reason}"
+                );
+                fail_compare_codegen_only.push(name.clone());
+            }
+        }
+    }
 
     // Post-ModelGen harness filter.
     //
@@ -475,10 +562,46 @@ fn main() {
         codegen_only.push(name);
     }
 
-    // Emit the generated files that tests/test_mod.rs will pick up.
-    emit_models_rs(&out_dir, &harnessable, &codegen_only);
-    emit_harness_rs(&out_dir, &harnessable);
-    emit_manifest_rs(&out_dir, &harnessable, &codegen_only);
+    // Same non-tensor-forward filter for fail-compare runners: a
+    // drift-check runner that can't call `.to_data()` on its output is
+    // no use, so route those entries to codegen-only.
+    let fc_non_tensor_forwards: Vec<String> = fail_compare_harnessable
+        .keys()
+        .filter(|name| !forward_signature_is_harnessable(&model_out_dir.join(format!("{name}.rs"))))
+        .cloned()
+        .collect();
+    for name in fc_non_tensor_forwards {
+        println!(
+            "cargo:warning=skipping fail-compare drift-runner emission for {name}: forward returns a non-tensor type"
+        );
+        fail_compare_harnessable.remove(&name);
+        fail_compare_codegen_only.push(name);
+    }
+
+    // For the expectations cross-check, panicked fail-compare entries
+    // are equivalent to codegen-only: we can't run a drift-check on
+    // them, just like we can't run one on a rank-0 I/O test. They go
+    // into the same manifest list. The models.rs emitter, however,
+    // only sees introspected + codegen-successful entries because we
+    // never wrote a .rs file for the panicked ones.
+    let mut fc_codegen_only_full = fail_compare_codegen_only.clone();
+    fc_codegen_only_full.extend(fail_compare_codegen_panic.iter().cloned());
+
+    emit_models_rs(
+        &out_dir,
+        &harnessable,
+        &codegen_only,
+        &fail_compare_harnessable,
+        &fail_compare_codegen_only,
+    );
+    emit_harness_rs(&out_dir, &harnessable, &fail_compare_harnessable);
+    emit_manifest_rs(
+        &out_dir,
+        &harnessable,
+        &codegen_only,
+        &fail_compare_harnessable,
+        &fc_codegen_only_full,
+    );
 }
 
 /// Return `true` if the generated `forward` signature returns a shape
@@ -557,19 +680,24 @@ fn emit_models_rs(
     out_dir: &Path,
     harnessable: &BTreeMap<String, TestMeta>,
     codegen_only: &[String],
+    fail_compare_harnessable: &BTreeMap<String, TestMeta>,
+    fail_compare_codegen_only: &[String],
 ) {
     let mut buf = String::new();
     buf.push_str(
         "// GENERATED by build.rs — do not edit. One module per test that\n\
          // successfully went through ModelGen.\n\n",
     );
-    // Both harnessable and codegen-only tests need their generated
-    // module declared so `rustc` compiles the `Model` struct. The
-    // difference is that codegen-only tests don't appear in harness.rs.
+    // Every codegenable test (pass or fail-compare, harness or not)
+    // needs its generated module declared so `rustc` compiles the
+    // `Model` struct. The difference is which ones get a `#[test]` or
+    // a drift-runner emitted in harness.rs.
     let mut all_mods: Vec<&str> = harnessable
         .keys()
         .map(String::as_str)
         .chain(codegen_only.iter().map(String::as_str))
+        .chain(fail_compare_harnessable.keys().map(String::as_str))
+        .chain(fail_compare_codegen_only.iter().map(String::as_str))
         .collect();
     all_mods.sort();
     for name in all_mods {
@@ -591,26 +719,68 @@ fn emit_models_rs(
 /// introspected input/output shapes and dtypes; a rank or dtype
 /// mismatch between this emission and the actual generated Model
 /// produces a rustc error rather than a silent runtime bug.
-fn emit_harness_rs(out_dir: &Path, harnessable: &BTreeMap<String, TestMeta>) {
+fn emit_harness_rs(
+    out_dir: &Path,
+    harnessable: &BTreeMap<String, TestMeta>,
+    fail_compare_harnessable: &BTreeMap<String, TestMeta>,
+) {
     let mut buf = String::new();
     buf.push_str(
         "// GENERATED by build.rs — do not edit. One #[test] per\n\
-         // harnessable entry from expectations.toml (status = pass).\n\n",
+         // harnessable entry from expectations.toml (status = pass),\n\
+         // plus one `fn fail_compare_<name>() -> bool` per harnessable\n\
+         // fail-compare entry for the drift check.\n\n",
     );
 
     for (name, meta) in harnessable {
-        emit_single_test(&mut buf, name, meta);
+        emit_single_test(&mut buf, name, meta, TestMode::Pass);
+    }
+
+    for (name, meta) in fail_compare_harnessable {
+        emit_single_test(&mut buf, name, meta, TestMode::FailCompare);
     }
 
     let path = out_dir.join("harness.rs");
     fs::write(&path, buf).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
 }
 
-/// Emit one `#[test] fn <name>()` into `buf`.
-fn emit_single_test(buf: &mut String, name: &str, meta: &TestMeta) {
-    writeln!(buf, "#[test]").unwrap();
-    writeln!(buf, "#[allow(non_snake_case)]").unwrap();
-    writeln!(buf, "fn {name}() {{").unwrap();
+/// Which flavor of test function to emit. Pass emits a `#[test]` that
+/// panics on mismatch. FailCompare emits a plain `fn -> bool` that
+/// returns `true` iff the comparison still fails — the drift check in
+/// tests/test_mod.rs expects that answer to stay `true` until the
+/// upstream bug is fixed, at which point the reviewer flips the entry
+/// to `status = "pass"`.
+#[derive(Copy, Clone)]
+enum TestMode {
+    Pass,
+    FailCompare,
+}
+
+/// Emit one test function into `buf`.
+///
+/// Pass mode emits a `#[test]` that panics on mismatch. FailCompare
+/// mode emits `fn fail_compare_<name>() -> bool`: setup (model + .pb
+/// loads) runs at the top level so its panics propagate as real test
+/// failures, and only the forward call and reference comparison are
+/// wrapped in `catch_unwind`. Returning `is_err()` from that wrap
+/// means "comparison still fails as expected"; `Ok(())` means the
+/// upstream bug has been fixed and the entry should be flipped to
+/// `pass`. This split matters: without it, a regression in
+/// `pb_loader` or tensor construction would panic inside the wrap
+/// and read as "still failing" across every fail-compare entry at
+/// once, silently masking the real breakage.
+fn emit_single_test(buf: &mut String, name: &str, meta: &TestMeta, mode: TestMode) {
+    match mode {
+        TestMode::Pass => {
+            writeln!(buf, "#[test]").unwrap();
+            writeln!(buf, "#[allow(non_snake_case)]").unwrap();
+            writeln!(buf, "fn {name}() {{").unwrap();
+        }
+        TestMode::FailCompare => {
+            writeln!(buf, "#[allow(non_snake_case, dead_code)]").unwrap();
+            writeln!(buf, "fn fail_compare_{name}() -> bool {{").unwrap();
+        }
+    }
     writeln!(buf, "    let device = Default::default();").unwrap();
     writeln!(
         buf,
@@ -663,6 +833,19 @@ fn emit_single_test(buf: &mut String, name: &str, meta: &TestMeta) {
     }
 
     // ---- Call forward ----
+    //
+    // For FailCompare mode, wrap forward + compare in `catch_unwind` so
+    // an expected comparison mismatch is captured as `Err(_)` rather
+    // than aborting the drift loop. Setup above (model + .pb loads)
+    // stays outside the wrap: a panic there is a real harness
+    // regression and must not be conflated with "still-failing".
+    if matches!(mode, TestMode::FailCompare) {
+        writeln!(
+            buf,
+            "    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {{"
+        )
+        .unwrap();
+    }
     let call_args = input_bindings.join(", ");
     if meta.outputs.len() == 1 {
         writeln!(buf, "    let output_0 = model.forward({call_args});").unwrap();
@@ -735,18 +918,42 @@ fn emit_single_test(buf: &mut String, name: &str, meta: &TestMeta) {
         }
     }
 
-    writeln!(buf, "}}\n").unwrap();
+    // Close the function body. For FailCompare mode, close the
+    // catch_unwind closure first, then return `result.is_err()` (true
+    // iff the comparison still failed as expected).
+    match mode {
+        TestMode::Pass => {
+            writeln!(buf, "}}\n").unwrap();
+        }
+        TestMode::FailCompare => {
+            writeln!(buf, "    }}));").unwrap();
+            writeln!(buf, "    result.is_err()").unwrap();
+            writeln!(buf, "}}\n").unwrap();
+        }
+    }
 }
 
-/// Emit `$OUT_DIR/manifest.rs`: a sorted list of test names that the
-/// drift check (in tests/test_mod.rs) compares against expectations.toml.
-/// Two lists are emitted: `HARNESS_TESTS` (those with #[test] fns) and
-/// `CODEGEN_ONLY_TESTS` (pass-listed but skipped from harness due to
-/// introspection edge cases). Together they must equal the pass-set.
+/// Emit `$OUT_DIR/manifest.rs`: sorted manifests that the drift check
+/// (in tests/test_mod.rs) compares against expectations.toml.
+///
+/// Four lists:
+///   * `HARNESS_TESTS` — pass entries with a `#[test]` fn.
+///   * `CODEGEN_ONLY_TESTS` — pass entries skipped from harness due to
+///     introspection edge cases (rank-0, non-tensor forward, etc.).
+///   * `FAIL_COMPARE_RUNNERS` — fail-compare entries with a drift
+///     runner emitted. Pairs name with function pointer for dispatch.
+///   * `FAIL_COMPARE_CODEGEN_ONLY` — fail-compare entries that couldn't
+///     be harnessed (same reasons as CODEGEN_ONLY_TESTS).
+///
+/// HARNESS_TESTS ∪ CODEGEN_ONLY_TESTS must equal the pass-set;
+/// FAIL_COMPARE_RUNNERS ∪ FAIL_COMPARE_CODEGEN_ONLY must equal the
+/// fail-compare-set. The drift check in tests/test_mod.rs enforces both.
 fn emit_manifest_rs(
     out_dir: &Path,
     harnessable: &BTreeMap<String, TestMeta>,
     codegen_only: &[String],
+    fail_compare_harnessable: &BTreeMap<String, TestMeta>,
+    fail_compare_codegen_only: &[String],
 ) {
     let mut buf = String::new();
     buf.push_str("// GENERATED by build.rs — do not edit.\n\n");
@@ -761,6 +968,20 @@ fn emit_manifest_rs(
     let mut sorted_co = codegen_only.to_vec();
     sorted_co.sort();
     for name in sorted_co {
+        writeln!(buf, "    \"{name}\",").unwrap();
+    }
+    buf.push_str("];\n\n");
+
+    buf.push_str("const FAIL_COMPARE_RUNNERS: &[(&str, fn() -> bool)] = &[\n");
+    for name in fail_compare_harnessable.keys() {
+        writeln!(buf, "    (\"{name}\", fail_compare_{name}),").unwrap();
+    }
+    buf.push_str("];\n\n");
+
+    buf.push_str("const FAIL_COMPARE_CODEGEN_ONLY: &[&str] = &[\n");
+    let mut sorted_fco = fail_compare_codegen_only.to_vec();
+    sorted_fco.sort();
+    for name in sorted_fco {
         writeln!(buf, "    \"{name}\",").unwrap();
     }
     buf.push_str("];\n");

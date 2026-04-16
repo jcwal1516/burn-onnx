@@ -62,34 +62,22 @@ status = "pass"
 status = "pass"
 
 [test_add_int16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_add_int8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_add_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_add_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_add_uint64]
-status = "fail-compare"
-reason = "add op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_add_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_affine_grid_2d]
 status = "skip-codegen"
@@ -181,29 +169,19 @@ status = "pass"
 status = "pass"
 
 [test_and_bcast3v1d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_and_bcast3v2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_and_bcast4v2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_and_bcast4v3d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_and_bcast4v4d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_argmax_default_axis_example]
 status = "pass"
@@ -329,9 +307,7 @@ status = "pass"
 status = "pass"
 
 [test_attention_3d_attn_mask]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_3d_attn_mask_expanded]
 status = "skip-codegen"
@@ -352,9 +328,7 @@ tracking = "#314"
 status = "pass"
 
 [test_attention_3d_diff_heads_sizes_attn_mask]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_3d_diff_heads_sizes_attn_mask_expanded]
 status = "skip-codegen"
@@ -393,9 +367,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_3d_diff_heads_with_past_and_present]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_3d_diff_heads_with_past_and_present_expanded]
 status = "skip-codegen"
@@ -492,9 +464,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_3d_with_past_and_present]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_3d_with_past_and_present_expanded]
 status = "skip-codegen"
@@ -537,14 +507,10 @@ tracking = "#314"
 status = "pass"
 
 [test_attention_4d_attn_mask]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_attn_mask_3d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_attn_mask_3d_causal]
 status = "fail-compare"
@@ -580,9 +546,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_4d_attn_mask_bool]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_attn_mask_bool_4d]
 status = "pass"
@@ -608,8 +572,8 @@ reason = "attention op family comparison failure"
 tracking = "#311"
 
 [test_attention_4d_causal_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_diff_heads_mask4d_padded_kv]
@@ -626,9 +590,7 @@ tracking = "#314"
 status = "pass"
 
 [test_attention_4d_diff_heads_sizes_attn_mask]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_diff_heads_sizes_attn_mask_expanded]
 status = "skip-codegen"
@@ -641,35 +603,33 @@ reason = "attention op family comparison failure"
 tracking = "#311"
 
 [test_attention_4d_diff_heads_sizes_causal_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_diff_heads_sizes_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_diff_heads_sizes_scaled]
 status = "pass"
 
 [test_attention_4d_diff_heads_sizes_scaled_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_diff_heads_sizes_softcap]
 status = "pass"
 
 [test_attention_4d_diff_heads_sizes_softcap_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_diff_heads_with_past_and_present]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_diff_heads_with_past_and_present_expanded]
 status = "skip-codegen"
@@ -677,9 +637,7 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_4d_diff_heads_with_past_and_present_mask3d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_diff_heads_with_past_and_present_mask3d_expanded]
 status = "skip-codegen"
@@ -695,16 +653,16 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_4d_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_fp16]
 status = "pass"
 
 [test_attention_4d_fp16_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_gqa]
@@ -728,13 +686,13 @@ reason = "comparison against reference tensor fails (classified by M2 first-run 
 tracking = "#311"
 
 [test_attention_4d_gqa_causal_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_gqa_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_gqa_scaled]
@@ -743,8 +701,8 @@ reason = "comparison against reference tensor fails (classified by M2 first-run 
 tracking = "#311"
 
 [test_attention_4d_gqa_scaled_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_gqa_softcap]
@@ -753,8 +711,8 @@ reason = "comparison against reference tensor fails (classified by M2 first-run 
 tracking = "#311"
 
 [test_attention_4d_gqa_softcap_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_gqa_with_past_and_present]
@@ -779,22 +737,20 @@ tracking = "#314"
 status = "pass"
 
 [test_attention_4d_scaled_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_softcap]
 status = "pass"
 
 [test_attention_4d_softcap_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_with_past_and_present]
-status = "fail-compare"
-reason = "upstream burn-flex bug: attention_naive rejects ONNX-compliant broadcasted mask/bias"
-tracking = "tracel-ai/burn#4772"
+status = "pass"
 
 [test_attention_4d_with_past_and_present_expanded]
 status = "skip-codegen"
@@ -869,8 +825,8 @@ reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
 tracking = "#314"
 
 [test_attention_4d_with_qk_matmul_expanded]
-status = "skip-codegen"
-reason = "Unsupported Mod input types: lhs=Shape(1), rhs=Shape(1)"
+status = "skip-compile"
+reason = "burn-onnx attention codegen emits bool_not on Shape array and tril on Bool tensor; pre-existing bug"
 tracking = "#314"
 
 [test_attention_4d_with_qk_matmul_softcap]
@@ -1040,119 +996,73 @@ reason = "bernoulli op family comparison failure"
 tracking = "#311"
 
 [test_bitshift_left_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitshift_left_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitshift_left_uint64]
-status = "fail-compare"
-reason = "bitshift op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_bitshift_left_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitshift_right_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitshift_right_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitshift_right_uint64]
-status = "fail-compare"
-reason = "bitshift op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_bitshift_right_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_and_i16_3d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_and_i32_2d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_and_ui64_bcast_3v1d]
-status = "fail-compare"
-reason = "bitwise op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_and_ui8_bcast_4v3d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_not_2d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_not_3d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_not_4d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_or_i16_4d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_or_i32_2d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_or_ui64_bcast_3v1d]
-status = "fail-compare"
-reason = "bitwise op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_or_ui8_bcast_4v3d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_xor_i16_3d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_xor_i32_2d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_xor_ui64_bcast_3v1d]
-status = "fail-compare"
-reason = "bitwise op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_bitwise_xor_ui8_bcast_4v3d]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_blackmanwindow]
 status = "skip-codegen"
@@ -1225,8 +1135,8 @@ reason = "Node 'cast1' (Cast): Invalid attribute 'to': unsupported dtype: 21"
 tracking = "#314"
 
 [test_cast_FLOAT4E2M1_to_FLOAT]
-status = "fail-compare"
-reason = "cast op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_cast_FLOAT4E2M1_to_FLOAT16]
@@ -1235,8 +1145,8 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_cast_FLOAT8E4M3FNUZ_to_FLOAT]
-status = "fail-compare"
-reason = "cast op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_cast_FLOAT8E4M3FNUZ_to_FLOAT16]
@@ -1245,8 +1155,8 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_cast_FLOAT8E4M3FN_to_FLOAT]
-status = "fail-compare"
-reason = "cast op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_cast_FLOAT8E4M3FN_to_FLOAT16]
@@ -1255,8 +1165,8 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_cast_FLOAT8E5M2FNUZ_to_FLOAT]
-status = "fail-compare"
-reason = "cast op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_cast_FLOAT8E5M2FNUZ_to_FLOAT16]
@@ -1265,8 +1175,8 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_cast_FLOAT8E5M2_to_FLOAT]
-status = "fail-compare"
-reason = "cast op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_cast_FLOAT8E5M2_to_FLOAT16]
@@ -1319,8 +1229,8 @@ reason = "Node 'cast1' (Cast): Invalid attribute 'to': unsupported dtype: 21"
 tracking = "#314"
 
 [test_cast_INT4_to_FLOAT]
-status = "fail-compare"
-reason = "cast op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_cast_INT4_to_FLOAT16]
@@ -1332,8 +1242,8 @@ tracking = "tracel-ai/burn-onnx"
 status = "pass"
 
 [test_cast_UINT4_to_FLOAT]
-status = "fail-compare"
-reason = "cast op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_cast_UINT4_to_FLOAT16]
@@ -1350,8 +1260,8 @@ reason = "Node 'cast1' (Cast): Invalid attribute 'to': Float8 dtype (type_id=24)
 tracking = "#314"
 
 [test_cast_e8m0_FLOAT8E8M0_to_FLOAT]
-status = "fail-compare"
-reason = "cast op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_cast_e8m0_FLOAT8E8M0_to_FLOAT16]
@@ -1525,8 +1435,8 @@ reason = "Node 'cast1' (Cast): Invalid attribute 'to': unsupported dtype: 21"
 tracking = "#314"
 
 [test_castlike_FLOAT4E2M1_to_FLOAT]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT4E2M1_to_FLOAT16]
@@ -1540,13 +1450,13 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_castlike_FLOAT4E2M1_to_FLOAT_expanded]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT8E4M3FNUZ_to_FLOAT]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT8E4M3FNUZ_to_FLOAT16]
@@ -1560,13 +1470,13 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_castlike_FLOAT8E4M3FNUZ_to_FLOAT_expanded]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT8E4M3FN_to_FLOAT]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT8E4M3FN_to_FLOAT16]
@@ -1580,13 +1490,13 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_castlike_FLOAT8E4M3FN_to_FLOAT_expanded]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT8E5M2FNUZ_to_FLOAT]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT8E5M2FNUZ_to_FLOAT16]
@@ -1600,13 +1510,13 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_castlike_FLOAT8E5M2FNUZ_to_FLOAT_expanded]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT8E5M2_to_FLOAT]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT8E5M2_to_FLOAT16]
@@ -1620,8 +1530,8 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_castlike_FLOAT8E5M2_to_FLOAT_expanded]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_FLOAT_to_BFLOAT16]
@@ -1725,8 +1635,8 @@ reason = "Node 'cast1' (Cast): Invalid attribute 'to': unsupported dtype: 21"
 tracking = "#314"
 
 [test_castlike_INT4_to_FLOAT]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_INT4_to_FLOAT16]
@@ -1740,8 +1650,8 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_castlike_INT4_to_FLOAT_expanded]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_INT4_to_INT8]
@@ -1755,8 +1665,8 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_castlike_UINT4_to_FLOAT]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_UINT4_to_FLOAT16]
@@ -1770,8 +1680,8 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_castlike_UINT4_to_FLOAT_expanded]
-status = "fail-compare"
-reason = "castlike op family comparison failure"
+status = "skip-compile"
+reason = "generated forward returns f32 but body yields Tensor<B,0> (codegen bug for FP8/FP4/INT4 cast to FLOAT)"
 tracking = "#311"
 
 [test_castlike_UINT4_to_UINT8]
@@ -1942,22 +1852,16 @@ tracking = "#314"
 status = "pass"
 
 [test_clip_default_inbounds]
-status = "skip-codegen"
-reason = "Custom(\"Clip operation requires at least one of min or max to be specified\")"
-tracking = "#314"
+status = "pass"
 
 [test_clip_default_inbounds_expanded]
 status = "pass"
 
 [test_clip_default_int8_inbounds]
-status = "skip-codegen"
-reason = "Custom(\"Clip operation requires at least one of min or max to be specified\")"
-tracking = "#314"
+status = "pass"
 
 [test_clip_default_int8_inbounds_expanded]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_clip_default_int8_max]
 status = "pass"
@@ -2382,34 +2286,22 @@ status = "pass"
 status = "pass"
 
 [test_div_int16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_div_int8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_div_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_div_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_div_uint64]
-status = "fail-compare"
-reason = "div op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_div_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_dropout_default]
 status = "pass"
@@ -3652,22 +3544,16 @@ status = "pass"
 status = "pass"
 
 [test_max_int16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_max_int32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_max_int64]
 status = "pass"
 
 [test_max_int8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_max_one_input]
 status = "skip-codegen"
@@ -3678,24 +3564,16 @@ tracking = "#314"
 status = "pass"
 
 [test_max_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_max_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_max_uint64]
-status = "fail-compare"
-reason = "max op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_max_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_maxpool_1d_default]
 status = "pass"
@@ -3809,22 +3687,16 @@ status = "pass"
 status = "pass"
 
 [test_min_int16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_min_int32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_min_int64]
 status = "pass"
 
 [test_min_int8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_min_one_input]
 status = "skip-codegen"
@@ -3835,24 +3707,16 @@ tracking = "#314"
 status = "pass"
 
 [test_min_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_min_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_min_uint64]
-status = "fail-compare"
-reason = "min op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_min_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mish]
 status = "pass"
@@ -3921,34 +3785,22 @@ status = "pass"
 status = "pass"
 
 [test_mul_int16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mul_int8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mul_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mul_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mul_uint64]
-status = "fail-compare"
-reason = "mul op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_mul_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_mvn]
 status = "skip-codegen"
@@ -4140,9 +3992,7 @@ reason = "Unsupported ONNX operation(s): NegativeLogLikelihoodLoss (node 'negati
 tracking = "#314"
 
 [test_nllloss_NCd1d2d3d4d5_none_no_weight_expanded]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_nonmaxsuppression_center_point_box_format]
 status = "skip-codegen"
@@ -4278,29 +4128,19 @@ status = "pass"
 status = "pass"
 
 [test_or_bcast3v1d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_or_bcast3v2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_or_bcast4v2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_or_bcast4v3d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_or_bcast4v4d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: bool binary ops (and/or) don't broadcast - wrong output shape or OOB in simd/scalar.rs"
-tracking = "tracel-ai/burn#4771"
+status = "pass"
 
 [test_pow]
 status = "pass"
@@ -4340,9 +4180,7 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_pow_types_int32_int32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_pow_types_int64_float32]
 status = "skip-compile"
@@ -6264,43 +6102,35 @@ reason = "burn-onnx emits uncompilable generated code (references alloc::* from 
 tracking = "tracel-ai/burn-onnx"
 
 [test_slice]
-status = "skip-codegen"
-reason = "Axes must be provided by onnx-ir for tensor slice"
-tracking = "#314"
+status = "pass"
 
 [test_slice_default_axes]
-status = "skip-codegen"
-reason = "Axes must be provided by onnx-ir for tensor slice"
-tracking = "#314"
+status = "pass"
 
 [test_slice_default_steps]
-status = "skip-codegen"
-reason = "Axes must be provided by onnx-ir for tensor slice"
-tracking = "#314"
+status = "pass"
 
 [test_slice_end_out_of_bounds]
-status = "skip-codegen"
-reason = "Axes must be provided by onnx-ir for tensor slice"
+status = "fail-compare"
+reason = "slice with negative indices or out-of-bounds ends: codegen default-axes path does not normalize negatives (pre-existing)"
 tracking = "#314"
 
 [test_slice_neg]
-status = "skip-codegen"
-reason = "Axes must be provided by onnx-ir for tensor slice"
+status = "fail-compare"
+reason = "slice with negative indices or out-of-bounds ends: codegen default-axes path does not normalize negatives (pre-existing)"
 tracking = "#314"
 
 [test_slice_neg_steps]
-status = "skip-codegen"
-reason = "Axes must be provided by onnx-ir for tensor slice"
+status = "fail-compare"
+reason = "slice with negative indices or out-of-bounds ends: codegen default-axes path does not normalize negatives (pre-existing)"
 tracking = "#314"
 
 [test_slice_negative_axes]
-status = "skip-codegen"
-reason = "Axes must be provided by onnx-ir for tensor slice"
-tracking = "#314"
+status = "pass"
 
 [test_slice_start_out_of_bounds]
-status = "skip-codegen"
-reason = "Axes must be provided by onnx-ir for tensor slice"
+status = "fail-compare"
+reason = "slice with negative indices or out-of-bounds ends: codegen default-axes path does not normalize negatives (pre-existing)"
 tracking = "#314"
 
 [test_softmax_axis_0]
@@ -6482,13 +6312,11 @@ status = "pass"
 status = "pass"
 
 [test_squeeze]
-status = "skip-codegen"
-reason = "Runtime squeeze axes not yet supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_squeeze_negative_axes]
-status = "skip-codegen"
-reason = "Runtime squeeze axes not yet supported in burn-onnx"
+status = "fail-compare"
+reason = "runtime squeeze axes: negative indices are normalized but burn squeeze_dims still rejects multi-axis squeeze; needs ordering fix"
 tracking = "#314"
 
 [test_stft]
@@ -6596,34 +6424,22 @@ status = "pass"
 status = "pass"
 
 [test_sub_int16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_sub_int8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_sub_uint16]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_sub_uint32]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_sub_uint64]
-status = "fail-compare"
-reason = "sub op family comparison failure"
-tracking = "#311"
+status = "pass"
 
 [test_sub_uint8]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_sum_example]
 status = "pass"
@@ -6721,39 +6537,25 @@ status = "pass"
 status = "pass"
 
 [test_tile]
-status = "skip-codegen"
-reason = "Runtime repeats are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_tile_precomputed]
-status = "skip-codegen"
-reason = "Runtime repeats are not supported in burn-onnx"
-tracking = "#314"
+status = "pass"
 
 [test_top_k]
-status = "fail-compare"
-reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
-tracking = "tracel-ai/burn"
+status = "pass"
 
 [test_top_k_negative_axis]
-status = "fail-compare"
-reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
-tracking = "tracel-ai/burn"
+status = "pass"
 
 [test_top_k_same_values]
-status = "fail-compare"
-reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
-tracking = "tracel-ai/burn"
+status = "pass"
 
 [test_top_k_same_values_2d]
-status = "fail-compare"
-reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
-tracking = "tracel-ai/burn"
+status = "pass"
 
 [test_top_k_same_values_largest]
-status = "fail-compare"
-reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
-tracking = "tracel-ai/burn"
+status = "pass"
 
 [test_top_k_smallest]
 status = "skip-codegen"
@@ -6761,39 +6563,25 @@ reason = "Node 'topk1' (TopK): TopK: only largest elements is supported"
 tracking = "#314"
 
 [test_top_k_uint64]
-status = "fail-compare"
-reason = "upstream burn-flex bug: int_select asserts indices must be I64 but the default IntElem is I32 (triggers inside topk_with_indices)"
-tracking = "tracel-ai/burn"
+status = "pass"
 
 [test_training_dropout]
-status = "skip-codegen"
-reason = "Runtime input is not implemented for Dropout"
-tracking = "#314"
+status = "pass"
 
 [test_training_dropout_default]
-status = "skip-codegen"
-reason = "Runtime input is not implemented for Dropout"
-tracking = "#314"
+status = "pass"
 
 [test_training_dropout_default_mask]
-status = "skip-codegen"
-reason = "Runtime input is not implemented for Dropout"
-tracking = "#314"
+status = "pass"
 
 [test_training_dropout_mask]
-status = "skip-codegen"
-reason = "Runtime input is not implemented for Dropout"
-tracking = "#314"
+status = "pass"
 
 [test_training_dropout_zero_ratio]
-status = "skip-codegen"
-reason = "Runtime input is not implemented for Dropout"
-tracking = "#314"
+status = "pass"
 
 [test_training_dropout_zero_ratio_mask]
-status = "skip-codegen"
-reason = "Runtime input is not implemented for Dropout"
-tracking = "#314"
+status = "pass"
 
 [test_transpose_all_permutations_0]
 status = "pass"
@@ -6939,17 +6727,13 @@ status = "pass"
 status = "pass"
 
 [test_unsqueeze_three_axes]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_unsqueeze_two_axes]
 status = "pass"
 
 [test_unsqueeze_unsorted_axes]
-status = "fail-compare"
-reason = "comparison against reference tensor fails (classified by M2 first-run sweep; root cause not yet triaged)"
-tracking = "#311"
+status = "pass"
 
 [test_upsample_nearest]
 status = "skip-codegen"

@@ -441,6 +441,10 @@ impl ProcessorRegistry {
             NodeType::QuantizeLinear,
             Box::new(crate::node::quantize_linear::QuantizeLinearProcessor),
         );
+        registry.register(
+            NodeType::QLinearMatMul,
+            Box::new(crate::node::qlinear_matmul::QLinearMatMulProcessor),
+        );
 
         // Array operations
         registry.register(
@@ -498,7 +502,10 @@ impl ProcessorRegistry {
             NodeType::IsNaN,
             Box::new(crate::node::is_nan::IsNaNProcessor),
         );
-
+        registry.register(
+            NodeType::Imputer,
+            Box::new(crate::node::imputer::ImputerProcessor),
+        );
         // Special operations
         registry.register(NodeType::Cast, Box::new(crate::node::cast::CastProcessor));
         registry.register(

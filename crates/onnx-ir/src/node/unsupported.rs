@@ -70,7 +70,6 @@ define_placeholder_node! {
     OptionalGetElementNode,
     OptionalHasElementNode,
     QLinearConvNode,
-    QLinearMatMulNode,
     QuantizeLinearNode,
     RMSNormalizationNode,
     RegexFullMatchNode,
